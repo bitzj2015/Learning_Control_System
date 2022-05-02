@@ -4,16 +4,17 @@ import gym
 import torch
 import numpy as np
 
-env = gym.make('CartPole-v1')
-
+# Define environment
 SEED = 1234
+env = gym.make('CartPole-v1')
 env.seed(SEED)
 
-
+# Define hyperparameters
 INPUT_DIM = env.observation_space.shape[0]
 HIDDEN_DIM = 128
 OUTPUT_DIM = env.action_space.n
 
+# Load RL model
 actor = MLP(INPUT_DIM, HIDDEN_DIM, OUTPUT_DIM)
 critic = MLP(INPUT_DIM, HIDDEN_DIM, 1)
 policy = ActorCritic(actor, critic)
@@ -22,7 +23,7 @@ ppo_args = PPOArgs()
 agent = Agent(policy, None, ppo_args)
 agent.load_param("rlmodels/param/ppo_policy.pkl")
 
-# Teting the loaded model
+# Testing the loaded RL model
 print("| Tesing the loaded rl agent ............ |")
 test_rewards = []
 for episode in range(1, 10+1):
