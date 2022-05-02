@@ -33,6 +33,13 @@ class Agent(object):
         self.episode_reward = 0
 
 
+    def load_param(self, name=None):
+        if name == None:
+            self.policy.load_state_dict(torch.load(self.args.agent_path))
+        else:
+            self.policy.load_state_dict(torch.load(name))
+
+
     def save_param(self):
         torch.save(self.policy.state_dict(), self.args.agent_path)
 
