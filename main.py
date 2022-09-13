@@ -81,7 +81,7 @@ for iter in range(5):
             
             cnt += 1
             episode_reward += reward
-            if cnt == 1000:
+            if cnt == 5000:
                 break
 
         state_batch = torch.cat(state_batch)
