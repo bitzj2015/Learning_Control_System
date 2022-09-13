@@ -25,16 +25,16 @@ rl_optimizer = optim.Adam(policy.parameters(), lr=1e-2)
 agent = Agent(policy, rl_optimizer, ppo_args, device)
 agent.load_param("rlmodels/param/ppo_policy.pkl")
 
-# Testing the loaded RL model
-print("| Tesing the loaded rl agent ............ |")
-test_rewards = []
-for episode in range(1, 6):
-    test_reward = evaluate(env, agent, device)
-    test_rewards.append(test_reward)
-    mean_test_rewards = np.mean(test_rewards[-5:])
+# # Testing the loaded RL model
+# print("| Tesing the loaded rl agent ............ |")
+# test_rewards = []
+# for episode in range(1, 6):
+#     test_reward = evaluate(env, agent, device)
+#     test_rewards.append(test_reward)
+#     mean_test_rewards = np.mean(test_rewards[-5:])
 
-    if episode % 5 == 0:
-        print(f'| Episode: {episode:3} | Mean Test Rewards: {mean_test_rewards:5.1f} |')
+#     if episode % 5 == 0:
+#         print(f'| Episode: {episode:3} | Mean Test Rewards: {mean_test_rewards:5.1f} |')
 
 # Define system model
 model = StableDynamicsModel((INPUT_DIM,),                 # input shape
@@ -50,7 +50,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-3)
 for iter in range(5):
     errors = []
     rewards = []
-    for ep in range(20):
+    for ep in range(50):
         state = env.reset()[0]
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
         error = 0
@@ -81,8 +81,8 @@ for iter in range(5):
             
             cnt += 1
             episode_reward += reward
-            # if cnt == 1000:
-            #     break
+            if cnt == 1000:
+                break
 
         state_batch = torch.cat(state_batch)
         action_batch = torch.cat(action_batch)
@@ -104,7 +104,7 @@ for iter in range(5):
             for i in range(len(reward_batch)):
                 agent.update_reward(reward_batch[i] - error[i] * 0.1)
 
-            policy_loss, value_loss = agent.update_policy()
+            # policy_loss, value_loss = agent.update_policy()
             rewards.append(episode_reward)
 
     print(errors, rewards)

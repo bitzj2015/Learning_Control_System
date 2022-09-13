@@ -47,7 +47,7 @@ N_TRIALS = 25
 REWARD_THRESHOLD = 475
 PRINT_EVERY = 10
 
-EVAL_ONLY = False
+EVAL_ONLY = True
 train_rewards = []
 test_rewards = []
 
