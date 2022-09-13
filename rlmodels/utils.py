@@ -7,19 +7,19 @@ def init_weights(m):
         m.bias.data.fill_(0)
 
 
-def train(env, agent):
+def train(env, agent, device):
     done = False
     episode_reward = 0
 
-    state = env.reset()
+    state = env.reset()[0]
 
     while not done:
 
-        state = torch.FloatTensor(state).unsqueeze(0)
+        state = torch.FloatTensor(state).unsqueeze(0).to(device)
 
         #append state here, not after we get the next state from env.step()
         action = agent.take_action(state)
-        state, reward, done, _ = env.step(action)
+        state, reward, done, _, _ = env.step(action)
 
         agent.update_reward(reward)
         
@@ -30,16 +30,16 @@ def train(env, agent):
     return policy_loss, value_loss, episode_reward
 
 
-def evaluate(env, agent):
+def evaluate(env, agent, device):
     done = False
     episode_reward = 0
 
-    state = env.reset()
+    state = env.reset()[0]
 
     while not done:
-        state = torch.FloatTensor(state).unsqueeze(0)
+        state = torch.FloatTensor(state).unsqueeze(0).to(device)
         action = agent.take_action(state, training=False)
-        state, reward, done, _ = env.step(action)
+        state, reward, done, _, _ = env.step(action)
         episode_reward += reward
         
     return episode_reward

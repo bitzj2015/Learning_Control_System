@@ -15,10 +15,11 @@ train_env = gym.make('CartPole-v1')
 test_env = gym.make('CartPole-v1')
 
 SEED = 1234
-train_env.seed(SEED)
-test_env.seed(SEED+1)
+# train_env.seed(SEED)
+# test_env.seed(SEED+1)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 INPUT_DIM = train_env.observation_space.shape[0]
@@ -26,18 +27,18 @@ HIDDEN_DIM = 128
 OUTPUT_DIM = train_env.action_space.n
 
 
-actor = MLP(INPUT_DIM, HIDDEN_DIM, OUTPUT_DIM)
-critic = MLP(INPUT_DIM, HIDDEN_DIM, 1)
-policy = ActorCritic(actor, critic)
+actor = MLP(INPUT_DIM, HIDDEN_DIM, OUTPUT_DIM).to(device)
+critic = MLP(INPUT_DIM, HIDDEN_DIM, 1).to(device)
+policy = ActorCritic(actor, critic).to(device)
 policy.apply(init_weights)
 
 
 LEARNING_RATE = 0.01
-optimizer = optim.Adam(policy.parameters(), lr = LEARNING_RATE)
+optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE)
 
 
 ppo_args = PPOArgs()
-agent = Agent(policy, optimizer, ppo_args)
+agent = Agent(policy, optimizer, ppo_args, device)
 
 
 MAX_EPISODES = 500
@@ -46,16 +47,16 @@ N_TRIALS = 25
 REWARD_THRESHOLD = 475
 PRINT_EVERY = 10
 
-EVAL_ONLY = True
+EVAL_ONLY = False
 train_rewards = []
 test_rewards = []
 
 if not EVAL_ONLY:
     for episode in range(1, MAX_EPISODES+1):
         
-        policy_loss, value_loss, train_reward = train(train_env, agent)
+        policy_loss, value_loss, train_reward = train(train_env, agent, device)
         
-        test_reward = evaluate(test_env, agent)
+        test_reward = evaluate(test_env, agent, device)
         
         train_rewards.append(train_reward)
         test_rewards.append(test_reward)
@@ -85,7 +86,7 @@ if not EVAL_ONLY:
 else:
     agent.load_param()
     for episode in range(1, PRINT_EVERY+1):
-        test_reward = evaluate(test_env, agent)
+        test_reward = evaluate(test_env, agent, device)
         test_rewards.append(test_reward)
         mean_test_rewards = np.mean(test_rewards[-N_TRIALS:])
 

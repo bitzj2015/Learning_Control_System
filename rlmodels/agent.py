@@ -20,7 +20,7 @@ class PPOArgs(object):
 
 
 class Agent(object):
-    def __init__(self, policy, optimizer, args):
+    def __init__(self, policy, optimizer, args, device):
         self.policy = policy
         self.optimizer = optimizer
         self.args = args
@@ -31,6 +31,7 @@ class Agent(object):
         self.rewards = []
         self.returns = []
         self.episode_reward = 0
+        self.device = device
 
 
     def load_param(self, name=None):
@@ -81,7 +82,7 @@ class Agent(object):
         for r in reversed(self.rewards):
             R = r + R * self.args.discount_factor
             self.returns.insert(0, R)
-        self.returns = torch.tensor(self.returns)
+        self.returns = torch.tensor(self.returns).to(self.device)
         
         # Normalize returns
         if self.args.normalize:
