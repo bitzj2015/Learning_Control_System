@@ -50,7 +50,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-3)
 for iter in range(5):
     errors = []
     rewards = []
-    for ep in range(50):
+    for ep in range(20):
         state = env.reset()[0]
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
         error = 0
@@ -104,7 +104,7 @@ for iter in range(5):
             for i in range(len(reward_batch)):
                 agent.update_reward(reward_batch[i] - error[i] * 0.1)
 
-            # policy_loss, value_loss = agent.update_policy()
+            policy_loss, value_loss = agent.update_policy()
             rewards.append(episode_reward)
 
     print(errors, rewards)
