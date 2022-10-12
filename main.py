@@ -2,8 +2,11 @@ from stablemodels import StableDynamicsModel
 from rlmodels import *
 import gym
 import torch
+from tqdm import tqdm
 import torch.optim as optim
+import matplotlib.pyplot as plt
 import numpy as np
+import json
 
 # Define environment
 SEED = 1234
@@ -45,66 +48,108 @@ model = StableDynamicsModel((INPUT_DIM,),                 # input shape
                             lyapunov_lr=3e-4,     # learning rate for lyapunov function
                             lyapunov_eps=1e-3)    # penalty for equilibrium away from 0
 model = model.to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-for iter in range(5):
+avg_errors = []
+avg_rewards = []
+
+for iter in range(50):
     errors = []
     rewards = []
-    for ep in range(20):
-        state = env.reset()[0]
-        state = torch.FloatTensor(state).unsqueeze(0).to(device)
+    for ep in range(500):
         error = 0
-        done = False
         n_iter = 0
         state_batch = []
         action_batch = []
         next_state_batch = []
         reward_batch = []
-        cnt = 0
         episode_reward = 0
-        while not done:
-            # RL agent outputs action
-            state_batch.append(state)
 
-            if iter % 2 == 0:
-                action = agent.take_action(state, training=False)
-            else:
-                action = agent.take_action(state)
-            action_batch.append(torch.tensor(action).reshape(-1,1).to(device))
-
-            state, reward, done, _, _ = env.step(action)
+        for _ in range(20):
+            state = env.reset()[0]
             state = torch.FloatTensor(state).unsqueeze(0).to(device)
-            next_state_batch.append(state)
+            done = False
+            cnt = 0
 
-            if iter % 2 == 1:
-                reward_batch.append(reward)
-            
-            cnt += 1
-            episode_reward += reward
-            if cnt == 5000:
-                break
+            while not done:
+                # RL agent outputs action
+                state_batch.append(state)
 
+                if iter % 2 == 0:
+                    action = agent.take_action(state, training=False)
+                else:
+                    action = agent.take_action(state)
+                action_batch.append(torch.tensor(action).reshape(-1,1).to(device))
+
+                state, reward, done, _, _ = env.step(action)
+                state = torch.FloatTensor(state).unsqueeze(0).to(device)
+                next_state_batch.append(state)
+
+                if iter % 2 == 1:
+                    reward_batch.append(reward)
+                
+                cnt += 1
+                episode_reward += reward
+                if cnt == 100:
+                    break
+        
         state_batch = torch.cat(state_batch)
         action_batch = torch.cat(action_batch)
         next_state_batch = torch.cat(next_state_batch)
-
 
         # Predicted next state
         prediction = model(state_batch, action_batch)
 
         error = ((prediction - next_state_batch) ** 2).sum(-1)
+
         if iter % 2 == 0:
             error = error.mean(0)
             error.backward()
             optimizer.step()
             errors.append(error.item())
+            if (ep + 1) % 20 == 0:
+                print(f"Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
             
         else:
             error = error.tolist()
+            error_max = np.mean(error)
             for i in range(len(reward_batch)):
-                agent.update_reward(reward_batch[i] - error[i] * 0.1)
+                agent.update_reward(reward_batch[i] - error[i] / error_max)
 
             policy_loss, value_loss = agent.update_policy()
             rewards.append(episode_reward)
+            if (ep + 1) % 20 == 0:
+                print(f"Iter: {iter // 2}, Epoch: {ep}, reward of rl model: {np.mean(rewards)}, with error: {error_max}")
 
-    print(errors, rewards)
+    plt.figure()
+    plt.xlabel("Epoch")
+
+    if iter % 2 == 0:
+        plt.plot(errors)
+        plt.ylabel("Errors of learning dynamic models")
+        plt.savefig(f"./figs/error_{iter // 2}.jpg")
+        avg_errors.append(np.mean(errors))
+    else:
+        plt.plot(rewards)
+        plt.ylabel("Rewards of rl models")
+        plt.savefig(f"./figs/reward_{iter // 2}.jpg")
+        avg_rewards.append(np.mean(rewards))
+    plt.close()
+
+plt.figure()
+plt.xlabel("Iteration")
+plt.plot(avg_errors)
+plt.ylabel("Errors of learning dynamic models")
+plt.savefig(f"./figs/avg_errors.jpg")
+
+plt.figure()
+plt.xlabel("Iteration")
+plt.plot(avg_errors)
+plt.ylabel("Rewards of rl models")
+plt.savefig(f"./figs/avg_rewards.jpg")
+
+torch.save(model, "./param/sysmodel.pkl")
+torch.save(agent, "./param/rlmodel_new.pkl")
+
+with open("./figs/results.json", "w") as json_file:
+    json.dump({"error": avg_errors, "reward": avg_rewards}, json_file)
