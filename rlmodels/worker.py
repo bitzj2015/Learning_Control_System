@@ -62,7 +62,6 @@ class LocalAgent(object):
         return {
             "state": self.state_batch,
             "action": self.action_batch,
-            "log_prob_action": self.log_prob_action_batch,
             "num_step": num_step,
             "reward": self.reward_batch
         }

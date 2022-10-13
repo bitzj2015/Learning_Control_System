@@ -1,4 +1,5 @@
 from pickle import TRUE
+from re import L
 from stablemodels import StableDynamicsModel
 from rlmodels import *
 import gym
@@ -67,6 +68,9 @@ class Worker(object):
         self.agent.device = device
         self.agent.load_param("rlmodels/param/ppo_policy.pkl", device)
 
+    def update_param(self, new_policy):
+        self.agent.policy.load_state_dict(new_policy.state_dict())
+
     def rollout(self, max_step=100):
         self.agent.policy.to(self.device)
         self.agent.device = self.device
@@ -108,13 +112,14 @@ Workers = [Worker.remote(env, agent, cpu_device) for _ in range(NUM_WORKER)]
 if not PLOT_ONLY:
     avg_errors = []
     avg_rewards = []
+    start_t = time.time()
 
     for iter in range(50):
         errors = []
         rewards = []
 
         if iter % 2 == 0:
-            for ep in range(100):
+            for ep in range(1000):
                 error = 0
                 state_batch = []
                 action_batch = []
@@ -140,13 +145,13 @@ if not PLOT_ONLY:
                 optimizer.step()
                 errors.append(error.item())
                 if (ep + 1) % 100 == 0:
-                    print(f"Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
+                    print(f"[{time.time() - start_t}] Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
         
         else:
             agent.policy.to(device)
             agent.device = device
 
-            for ep in range(1000):
+            for ep in range(100):
                 error = 0
                 n_iter = 0
                 state_batch = []
@@ -186,14 +191,16 @@ if not PLOT_ONLY:
                 error = ((prediction - next_state_batch) ** 2).sum(-1)
 
                 error = error.tolist()
-                error_max = np.mean(error)
+                error_mean = np.mean(error)
                 for i in range(len(reward_batch)):
-                    agent.update_reward(reward_batch[i] - error[i] / error_max)
+                    agent.update_reward(reward_batch[i] - error[i] / error_mean)
 
                 policy_loss, value_loss = agent.update_policy()
                 rewards.append(episode_reward)
                 if (ep + 1) % 100 == 0:
-                    print(f"Iter: {iter // 2}, epoch: {ep}, reward of rl model: {np.mean(rewards)}, with error: {error_max}")
+                    print(f"[{time.time() - start_t}], epoch: {ep}, reward of rl model: {np.mean(rewards)}, with error: {error_mean}")
+
+            ret = ray.get([worker.update_param.remote(agent.policy.to(cpu_device)) for worker in Workers])
 
         plt.figure()
         plt.xlabel("Epoch")
