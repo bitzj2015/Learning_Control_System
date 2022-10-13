@@ -9,6 +9,13 @@ import json
 import ray
 import time
 import os
+import subprocess
+import logging
+
+subprocess.run(["mkdir", "-p", "figs"])
+subprocess.run(["mkdir", "-p", "param"])
+subprocess.run(["mkdir", "-p", "logs"])
+subprocess.run(["mkdir", "-p", "results"])
 
 # Define environment
 SEED = 1234
@@ -23,6 +30,17 @@ NUM_WORKER = os.cpu_count()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 cpu_device = torch.device("cpu")
 
+# Define logger
+logging.basicConfig(
+    filename=f"./logs/log_test.txt",
+    filemode='w',
+    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+    datefmt='%H:%M:%S',
+    level=logging.INFO
+)
+logger=logging.getLogger() 
+logger.setLevel(logging.INFO) 
+
 # Load RL model
 actor = MLP(INPUT_DIM, HIDDEN_DIM, OUTPUT_DIM)
 critic = MLP(INPUT_DIM, HIDDEN_DIM, 1)
@@ -31,18 +49,6 @@ policy.apply(init_weights)
 ppo_args = PPOArgs()
 rl_optimizer = optim.Adam(policy.parameters(), lr=1e-3)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
-
-
-# # Testing the loaded RL model
-# print("| Tesing the loaded rl agent ............ |")
-# test_rewards = []
-# for episode in range(1, 6):
-#     test_reward = evaluate(env, agent, device)
-#     test_rewards.append(test_reward)
-#     mean_test_rewards = np.mean(test_rewards[-5:])
-
-#     if episode % 5 == 0:
-#         print(f'| Episode: {episode:3} | Mean Test Rewards: {mean_test_rewards:5.1f} |')
 
 # Define system model
 model = StableDynamicsModel((INPUT_DIM,),                 # input shape
@@ -144,7 +150,7 @@ if not PLOT_ONLY:
                 optimizer.step()
                 errors.append(error.item())
                 if (ep + 1) % 100 == 0:
-                    print(f"[{time.time() - start_t}] Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
+                    logger.info(f"[{time.time() - start_t}] Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
         
         else:
             agent.policy.to(device)
@@ -197,7 +203,7 @@ if not PLOT_ONLY:
                 policy_loss, value_loss = agent.update_policy()
                 rewards.append(episode_reward)
                 if (ep + 1) % 100 == 0:
-                    print(f"[{time.time() - start_t}], epoch: {ep}, reward of rl model: {np.mean(rewards)}, with error: {error_mean}")
+                    logger.info(f"[{time.time() - start_t}], epoch: {ep}, reward of rl model: {np.mean(rewards)}, with error: {error_mean}")
 
             ret = ray.get([worker.update_param.remote(agent.policy.to(cpu_device)) for worker in Workers])
 
