@@ -34,11 +34,11 @@ class Agent(object):
         self.device = device
 
 
-    def load_param(self, name=None):
+    def load_param(self, name=None, device=torch.device('cpu')):
         if name == None:
-            self.policy.load_state_dict(torch.load(self.args.agent_path))
+            self.policy.load_state_dict(torch.load(self.args.agent_path, map_location=device))
         else:
-            self.policy.load_state_dict(torch.load(name))
+            self.policy.load_state_dict(torch.load(name, map_location=device))
 
 
     def save_param(self):
