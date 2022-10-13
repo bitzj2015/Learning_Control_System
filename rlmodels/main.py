@@ -10,6 +10,11 @@ import gym
 from models import *
 from utils import *
 from agent import *
+import subprocess
+
+subprocess.run(["mkdir", "-p", "logs"])
+subprocess.run(["mkdir", "-p", "param"])
+subprocess.run(["mkdir", "-p", "results"])
 
 train_env = gym.make('CartPole-v1')
 test_env = gym.make('CartPole-v1')
