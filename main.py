@@ -1,16 +1,14 @@
-from pickle import TRUE
-from re import L
 from stablemodels import StableDynamicsModel
 from rlmodels import *
 import gym
 import torch
-from tqdm import tqdm
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
 import json
 import ray
 import time
+import os
 
 # Define environment
 SEED = 1234
@@ -21,7 +19,7 @@ INPUT_DIM = env.observation_space.shape[0]
 HIDDEN_DIM = 128
 OUTPUT_DIM = env.action_space.n
 PLOT_ONLY = False
-NUM_WORKER = 50
+NUM_WORKER = os.cpu_count()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 cpu_device = torch.device("cpu")
 
@@ -31,7 +29,7 @@ critic = MLP(INPUT_DIM, HIDDEN_DIM, 1)
 policy = ActorCritic(actor, critic).to(cpu_device)
 policy.apply(init_weights)
 ppo_args = PPOArgs()
-rl_optimizer = optim.Adam(policy.parameters(), lr=1e-2)
+rl_optimizer = optim.Adam(policy.parameters(), lr=1e-3)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 
@@ -106,7 +104,8 @@ class Worker(object):
             "next_state": next_state_batch, 
             "reward": episode_reward
         }
-    
+
+ray.init()
 Workers = [Worker.remote(env, agent, cpu_device) for _ in range(NUM_WORKER)]
 
 if not PLOT_ONLY:
@@ -119,7 +118,7 @@ if not PLOT_ONLY:
         rewards = []
 
         if iter % 2 == 0:
-            for ep in range(1000):
+            for ep in range(500):
                 error = 0
                 state_batch = []
                 action_batch = []
@@ -151,7 +150,7 @@ if not PLOT_ONLY:
             agent.policy.to(device)
             agent.device = device
 
-            for ep in range(100):
+            for ep in range(200):
                 error = 0
                 n_iter = 0
                 state_batch = []
