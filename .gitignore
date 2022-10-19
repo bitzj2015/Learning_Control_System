@@ -7,4 +7,4 @@ results/*
 *.pkl
 logs/*
 *.json
-
+*.txt
