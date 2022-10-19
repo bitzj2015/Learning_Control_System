@@ -41,8 +41,11 @@ class Agent(object):
             self.policy.load_state_dict(torch.load(name, map_location=device))
 
 
-    def save_param(self):
-        torch.save(self.policy.state_dict(), self.args.agent_path)
+    def save_param(self, name):
+        if name == None:
+            torch.save(self.policy.state_dict(), self.args.agent_path)
+        else:
+            torch.save(self.policy.state_dict(), name)
 
 
     def take_action(self, state, training=True):

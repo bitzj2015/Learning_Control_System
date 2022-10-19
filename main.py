@@ -1,3 +1,4 @@
+from tracemalloc import start
 from stablemodels import StableDynamicsModel
 from rlmodels import *
 import gym
@@ -12,7 +13,8 @@ import os
 import subprocess
 import logging
 
-subprocess.run(["mkdir", "-p", "figs"])
+VERSION = "test2"
+subprocess.run(["mkdir", "-p", f"figs_{VERSION}"])
 subprocess.run(["mkdir", "-p", "param"])
 subprocess.run(["mkdir", "-p", "logs"])
 subprocess.run(["mkdir", "-p", "results"])
@@ -26,13 +28,16 @@ INPUT_DIM = env.observation_space.shape[0]
 HIDDEN_DIM = 128
 OUTPUT_DIM = env.action_space.n
 PLOT_ONLY = False
+PRETRAIN = False
 NUM_WORKER = os.cpu_count()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 cpu_device = torch.device("cpu")
+NUM_ITER = 300
+EPOCH = 500
 
 # Define logger
 logging.basicConfig(
-    filename=f"./logs/log_test.txt",
+    filename=f"./logs/log_{VERSION}.txt",
     filemode='w',
     format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
     datefmt='%H:%M:%S',
@@ -49,6 +54,7 @@ policy.apply(init_weights)
 ppo_args = PPOArgs()
 rl_optimizer = optim.Adam(policy.parameters(), lr=1e-3)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
+# agent.load_param("rlmodels/param/ppo_policy.pkl", device)
 
 # Define system model
 model = StableDynamicsModel((INPUT_DIM,),                 # input shape
@@ -64,13 +70,13 @@ optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 @ray.remote
 class Worker(object):
-    def __init__(self, env, agent, device):
+    def __init__(self, env, agent, device, path="rlmodels/param/ppo_policy.pkl"):
         self.env = env
         self.agent = agent
         self.device = device
         self.agent.policy.to(device)
         self.agent.device = device
-        self.agent.load_param("rlmodels/param/ppo_policy.pkl", device)
+        self.agent.load_param(path, device)
 
     def update_param(self, new_policy):
         self.agent.policy.load_state_dict(new_policy.state_dict())
@@ -111,20 +117,36 @@ class Worker(object):
             "reward": episode_reward
         }
 
-ray.init()
-Workers = [Worker.remote(env, agent, cpu_device) for _ in range(NUM_WORKER)]
+
 
 if not PLOT_ONLY:
+    ray.init()
     avg_errors = []
     avg_rewards = []
-    start_t = time.time()
+    avg_reward_errors = []
+    
+    if PRETRAIN:
+        RL_PATH = "param/rlmodel_new.pkl"
+        with open(f"./figs_{VERSION}/results.json", "r") as json_file:
+            data = json.load(json_file)
+        avg_errors = data["error"]
+        avg_rewards = data["reward"]
+        start_ep = len(avg_errors)
+        model = torch.load("param/sysmodel.pkl", map_location=device)
 
-    for iter in range(50):
+    else:
+        RL_PATH = "rlmodels/param/ppo_policy.pkl"
+        start_ep = 0
+        
+    Workers = [Worker.remote(env, agent, cpu_device, RL_PATH) for _ in range(NUM_WORKER)]
+
+    for iter in range(start_ep, start_ep + NUM_ITER):
         errors = []
         rewards = []
+        reward_errors = []
 
         if iter % 2 == 0:
-            for ep in range(500):
+            for ep in range(EPOCH):
                 error = 0
                 state_batch = []
                 action_batch = []
@@ -149,14 +171,14 @@ if not PLOT_ONLY:
                 error.backward()
                 optimizer.step()
                 errors.append(error.item())
-                if (ep + 1) % 100 == 0:
-                    logger.info(f"[{time.time() - start_t}] Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
+                if ep % 100 == 0:
+                    logger.info(f"Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
         
         else:
             agent.policy.to(device)
             agent.device = device
 
-            for ep in range(200):
+            for ep in range(EPOCH):
                 error = 0
                 n_iter = 0
                 state_batch = []
@@ -192,18 +214,18 @@ if not PLOT_ONLY:
 
                 # Predicted next state
                 prediction = model(state_batch, action_batch)
-
-                error = ((prediction - next_state_batch) ** 2).sum(-1)
+                error = ((prediction - next_state_batch) ** 2).sum(-1).detach()
 
                 error = error.tolist()
-                error_mean = np.mean(error)
+                error_mean = max(np.mean(error), 5)
                 for i in range(len(reward_batch)):
                     agent.update_reward(reward_batch[i] - error[i] / error_mean)
 
                 policy_loss, value_loss = agent.update_policy()
                 rewards.append(episode_reward)
-                if (ep + 1) % 100 == 0:
-                    logger.info(f"[{time.time() - start_t}], epoch: {ep}, reward of rl model: {np.mean(rewards)}, with error: {error_mean}")
+                reward_errors.append(np.sum(error) / error_mean)
+                if ep % 100 == 0:
+                    logger.info(f"Iter: {iter // 2}, epoch: {ep}, reward of rl model: {np.mean(rewards)}, with error: {error_mean}")
 
             ret = ray.get([worker.update_param.remote(agent.policy.to(cpu_device)) for worker in Workers])
 
@@ -213,51 +235,51 @@ if not PLOT_ONLY:
         if iter % 2 == 0:
             plt.plot(errors)
             plt.ylabel("Errors of learning dynamic models")
-            plt.savefig(f"./figs/error_{iter // 2}.jpg")
+            plt.savefig(f"./figs_{VERSION}/error_{iter // 2}.jpg")
             avg_errors.append(np.mean(errors))
         else:
             plt.plot(rewards)
+            plt.plot(np.array(rewards) - np.array(reward_errors))
             plt.ylabel("Rewards of rl models")
-            plt.savefig(f"./figs/reward_{iter // 2}.jpg")
+            plt.savefig(f"./figs_{VERSION}/reward_{iter // 2}.jpg")
             avg_rewards.append(np.mean(rewards))
+            avg_reward_errors.append(np.mean(reward_errors))
         plt.close()
 
-    plt.figure()
-    plt.xlabel("Iteration")
-    plt.plot(avg_errors)
-    plt.ylabel("Errors of learning dynamic models")
-    plt.savefig(f"./figs/avg_errors.jpg")
+    torch.save(model, f"./param/sysmodel_{VERSION}.pkl")
+    agent.save_param(f"param/rlmodel_new_{VERSION}.pkl")
 
-    plt.figure()
-    plt.xlabel("Iteration")
-    plt.plot(avg_rewards)
-    plt.ylabel("Rewards of rl models")
-    plt.savefig(f"./figs/avg_rewards.jpg")
-
-    torch.save(model, "./param/sysmodel.pkl")
-    torch.save(agent, "./param/rlmodel_new.pkl")
-
-    with open("./figs/results.json", "w") as json_file:
-        json.dump({"error": avg_errors, "reward": avg_rewards}, json_file)
+    with open(f"./figs_{VERSION}/results.json", "w") as json_file:
+        json.dump(
+            {"error": avg_errors, "reward": avg_rewards, "reward_errors": avg_reward_errors}, 
+            json_file)
 
 else:
-    with open("./figs/results.json", "r") as json_file:
+    with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
 
     avg_errors = data["error"]
     avg_rewards = data["reward"]
+    avg_reward_errors = data["reward_errors"]
 
     plt.figure()
     plt.xlabel("Iteration")
     plt.plot(avg_errors)
-    plt.ylabel("Errors of learning dynamic models")
-    plt.savefig(f"./figs/avg_errors.jpg")
+    plt.ylabel("Error of deep dynamic model")
+    plt.ylim([0, 10])
+    plt.savefig(f"./figs_{VERSION}/avg_errors.jpg")
 
     plt.figure()
     plt.xlabel("Iteration")
     plt.plot(avg_rewards)
-    plt.ylabel("Rewards of rl models")
-    plt.savefig(f"./figs/avg_rewards.jpg")
+    plt.ylabel("Reward of RL controller (Max: 100)")
+    plt.savefig(f"./figs_{VERSION}/avg_rewards.jpg")
+
+    plt.figure()
+    plt.xlabel("Iteration")
+    plt.plot(avg_reward_errors)
+    plt.ylabel("Optimization objective of RL")
+    plt.savefig(f"./figs_{VERSION}/avg_loss.jpg")
 
     torch.save(model, "./param/sysmodel.pkl")
     torch.save(agent, "./param/rlmodel_new.pkl")

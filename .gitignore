@@ -5,3 +5,6 @@ param/*
 results/*
 *.jpg
 *.pkl
+logs/*
+*.json
+
