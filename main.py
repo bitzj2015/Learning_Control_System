@@ -2,6 +2,7 @@ from tracemalloc import start
 from stablemodels import StableDynamicsModel
 from rlmodels import *
 import gym
+import os
 import torch
 import torch.optim as optim
 import matplotlib.pyplot as plt
@@ -29,11 +30,12 @@ HIDDEN_DIM = 128
 OUTPUT_DIM = env.action_space.n
 PLOT_ONLY = False
 PRETRAIN = False
-NUM_WORKER = 2 #os.cpu_count()
+NUM_WORKER = os.cpu_count()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 cpu_device = torch.device("cpu")
 NUM_ITER = 1000
 EPOCH = 500
+BATCH_SIZE = 1024
 
 # Define logger
 logging.basicConfig(
@@ -65,7 +67,7 @@ model = StableDynamicsModel((INPUT_DIM,),                 # input shape
                             lyapunov_lr=3e-4,     # learning rate for lyapunov function
                             lyapunov_eps=1e-3)    # penalty for equilibrium away from 0
 model = model.to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 
 @ray.remote
@@ -164,14 +166,17 @@ if not PLOT_ONLY:
                 state_batch = torch.cat(state_batch).to(device)
                 action_batch = torch.cat(action_batch).to(device)
                 next_state_batch = torch.cat(next_state_batch).to(device)
+                
+                for i in range(state_batch.size(0) // BATCH_SIZE):
+                    # Predicted next state
+                    prediction = model(state_batch[i * BATCH_SIZE : (i + 1) * BATCH_SIZE], action_batch[i * BATCH_SIZE : (i + 1) * BATCH_SIZE])
+                    error = ((prediction - next_state_batch[i * BATCH_SIZE : (i + 1) * BATCH_SIZE]) ** 2).sum(-1)
 
-                # Predicted next state
-                prediction = model(state_batch, action_batch)
-                error = ((prediction - next_state_batch) ** 2).sum(-1)
+                    error = error.mean(0)
+                    optimizer.zero_grad()
+                    error.backward()
+                    optimizer.step()
 
-                error = error.mean(0)
-                error.backward()
-                optimizer.step()
                 errors.append(error.item())
                 if ep % 100 == 0:
                     logger.info(f"Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
