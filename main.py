@@ -1,4 +1,3 @@
-from tracemalloc import start
 from stablemodels import StableDynamicsModel
 from rlmodels import *
 import gym
@@ -12,30 +11,20 @@ import ray
 from copy import deepcopy
 import subprocess
 import logging
+import argparse
 
-VERSION = "test_cp"
+
+parser = argparse.ArgumentParser(description='train rl model.')
+parser.add_argument('--env', type=int, dest="env", help='start point', default=0)
+parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
+parser.add_argument('--version', type=str, dest="version", help='version', default="test_cp")
+args = parser.parse_args()
+
+VERSION = args.version
 subprocess.run(["mkdir", "-p", f"figs_{VERSION}"])
 subprocess.run(["mkdir", "-p", "param"])
 subprocess.run(["mkdir", "-p", "logs"])
 subprocess.run(["mkdir", "-p", "results"])
-
-# Define environment
-SEED = 1234
-env = gym.make('CartPole-v1')
-# env = gym.make('MountainCar-v0')
-
-# Define hyperparameters
-INPUT_DIM = env.observation_space.shape[0]
-HIDDEN_DIM = 128
-OUTPUT_DIM = env.action_space.n
-PLOT_ONLY = False
-PRETRAIN = False
-NUM_WORKER = os.cpu_count()
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-cpu_device = torch.device("cpu")
-NUM_ITER = 1000
-EPOCH = 500
-BATCH_SIZE = 1024
 
 # Define logger
 logging.basicConfig(
@@ -48,12 +37,48 @@ logging.basicConfig(
 logger=logging.getLogger() 
 logger.setLevel(logging.INFO) 
 
+# Environment setups
+ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4']
+ENV_TYPE_LIST = [0, 1, 1]
+ROLLOUT_LEN_LIST = [500, 10000, 5000]
+LEARNING_RATE_LIST = [0.001, 0.001, 0.003]
+ENV = ENV_LIST[args.env]
+IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
+ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
+
+# Define environment
+SEED = args.seed
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+cpu_device = torch.device("cpu")
+env = gym.make(ENV)
+
+# Define hyperparameters
+INPUT_DIM = env.observation_space.shape[0]
+HIDDEN_DIM = 128
+
 # Load RL model
-actor = MLP(INPUT_DIM, HIDDEN_DIM, OUTPUT_DIM)
-critic = MLP(INPUT_DIM, HIDDEN_DIM, 1)
-policy = ActorCritic(actor, critic).to(cpu_device)
-policy.apply(init_weights)
-ppo_args = PPOArgs()
+if not IS_CONTINUOUS_ENV:
+    OUTPUT_DIM = env.action_space.n
+    actor = MLP(INPUT_DIM, HIDDEN_DIM, OUTPUT_DIM)
+    critic = MLP(INPUT_DIM, HIDDEN_DIM, 1)
+    policy = ActorCritic(actor, critic).to(cpu_device)
+    policy.apply(init_weights)
+
+else:
+    OUTPUT_DIM = env.action_space.shape[0]
+    policy = ActorCriticCont(INPUT_DIM, HIDDEN_DIM, OUTPUT_DIM).to(cpu_device)
+    policy.apply(init_weights)
+
+PLOT_ONLY = False
+PRETRAIN = False
+NUM_WORKER = os.cpu_count()
+NUM_ITER = 1000
+EPOCH = 500
+BATCH_SIZE = 1024
+
+ppo_args = PPOArgs(agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
 rl_optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
@@ -72,8 +97,8 @@ optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 @ray.remote
 class Worker(object):
-    def __init__(self, env, agent, device, path="rlmodels/param/ppo_policy.pkl"):
-        self.env = gym.make('CartPole-v1')
+    def __init__(self, env_name, agent, device, path="rlmodels/param/ppo_policy.pkl"):
+        self.env = gym.make(env_name)
         self.agent = agent
         self.device = device
         self.agent.policy.to(device)
@@ -137,11 +162,11 @@ if not PLOT_ONLY:
         model = torch.load("param/sysmodel.pkl", map_location=device)
 
     else:
-        RL_PATH = "rlmodels/param/ppo_policy.pkl"
+        RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}.pkl"
         start_ep = 0
     
-    agent.load_param("rlmodels/param/ppo_policy.pkl", device)
-    Workers = [Worker.remote(deepcopy(env), deepcopy(agent), cpu_device, RL_PATH) for _ in range(NUM_WORKER)]
+    agent.load_param(RL_PATH, device)
+    Workers = [Worker.remote(ENV, deepcopy(agent), cpu_device, RL_PATH) for _ in range(NUM_WORKER)]
     agent.policy.to(device)
     
 
