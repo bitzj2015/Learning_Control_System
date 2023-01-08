@@ -8,12 +8,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import json
 import ray
-import time
-import os
+from copy import deepcopy
 import subprocess
 import logging
 
-VERSION = "test2"
+VERSION = "test_cp"
 subprocess.run(["mkdir", "-p", f"figs_{VERSION}"])
 subprocess.run(["mkdir", "-p", "param"])
 subprocess.run(["mkdir", "-p", "logs"])
@@ -22,6 +21,7 @@ subprocess.run(["mkdir", "-p", "results"])
 # Define environment
 SEED = 1234
 env = gym.make('CartPole-v1')
+# env = gym.make('MountainCar-v0')
 
 # Define hyperparameters
 INPUT_DIM = env.observation_space.shape[0]
@@ -29,10 +29,10 @@ HIDDEN_DIM = 128
 OUTPUT_DIM = env.action_space.n
 PLOT_ONLY = False
 PRETRAIN = False
-NUM_WORKER = os.cpu_count()
+NUM_WORKER = 2 #os.cpu_count()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 cpu_device = torch.device("cpu")
-NUM_ITER = 300
+NUM_ITER = 1000
 EPOCH = 500
 
 # Define logger
@@ -52,31 +52,31 @@ critic = MLP(INPUT_DIM, HIDDEN_DIM, 1)
 policy = ActorCritic(actor, critic).to(cpu_device)
 policy.apply(init_weights)
 ppo_args = PPOArgs()
-rl_optimizer = optim.Adam(policy.parameters(), lr=1e-3)
+rl_optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
-# agent.load_param("rlmodels/param/ppo_policy.pkl", device)
 
 # Define system model
 model = StableDynamicsModel((INPUT_DIM,),                 # input shape
                             control_size=1,       # action size
+                            device= device, 
                             alpha=0.9,            # lyapunov constant
                             layer_sizes=[64, 64], # NN layer sizes for lyapunov
                             lr=3e-4,              # learning rate for dynamics model
                             lyapunov_lr=3e-4,     # learning rate for lyapunov function
                             lyapunov_eps=1e-3)    # penalty for equilibrium away from 0
 model = model.to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 
 @ray.remote
 class Worker(object):
     def __init__(self, env, agent, device, path="rlmodels/param/ppo_policy.pkl"):
-        self.env = env
+        self.env = gym.make('CartPole-v1')
         self.agent = agent
         self.device = device
         self.agent.policy.to(device)
         self.agent.device = device
-        self.agent.load_param(path, device)
+        # self.agent.load_param(path, device)
 
     def update_param(self, new_policy):
         self.agent.policy.load_state_dict(new_policy.state_dict())
@@ -109,7 +109,7 @@ class Worker(object):
             episode_reward += reward
             if cnt >= max_step:
                 break
-        
+
         return {
             "state": state_batch, 
             "action": action_batch, 
@@ -137,8 +137,11 @@ if not PLOT_ONLY:
     else:
         RL_PATH = "rlmodels/param/ppo_policy.pkl"
         start_ep = 0
-        
-    Workers = [Worker.remote(env, agent, cpu_device, RL_PATH) for _ in range(NUM_WORKER)]
+    
+    agent.load_param("rlmodels/param/ppo_policy.pkl", device)
+    Workers = [Worker.remote(deepcopy(env), deepcopy(agent), cpu_device, RL_PATH) for _ in range(NUM_WORKER)]
+    agent.policy.to(device)
+    
 
     for iter in range(start_ep, start_ep + NUM_ITER):
         errors = []
@@ -152,7 +155,7 @@ if not PLOT_ONLY:
                 action_batch = []
                 next_state_batch = []
 
-                ret = ray.get([worker.rollout.remote() for worker in Workers])
+                ret = ray.get([worker.rollout.remote(max_step=500) for worker in Workers])
                 for batch in ret:
                     state_batch += batch["state"]
                     action_batch += batch["action"]
@@ -164,7 +167,6 @@ if not PLOT_ONLY:
 
                 # Predicted next state
                 prediction = model(state_batch, action_batch)
-
                 error = ((prediction - next_state_batch) ** 2).sum(-1)
 
                 error = error.mean(0)
@@ -177,6 +179,7 @@ if not PLOT_ONLY:
         else:
             agent.policy.to(device)
             agent.device = device
+            agent.policy.train()
 
             for ep in range(EPOCH):
                 error = 0
@@ -197,7 +200,7 @@ if not PLOT_ONLY:
                     state_batch.append(state)
                     action = agent.take_action(state)
                     action_batch.append(torch.tensor(action).reshape(-1,1).to(device))
-
+                    
                     state, reward, done, _, _ = env.step(action)
                     state = torch.FloatTensor(state).unsqueeze(0).to(device)
                     next_state_batch.append(state)
@@ -205,7 +208,7 @@ if not PLOT_ONLY:
                     
                     cnt += 1
                     episode_reward += reward
-                    if cnt == 100:
+                    if cnt == 500:
                         break
                 
                 state_batch = torch.cat(state_batch)
@@ -217,13 +220,15 @@ if not PLOT_ONLY:
                 error = ((prediction - next_state_batch) ** 2).sum(-1).detach()
 
                 error = error.tolist()
-                error_mean = max(np.mean(error), 5)
+                error_mean = np.mean(error)
                 for i in range(len(reward_batch)):
-                    agent.update_reward(reward_batch[i] - error[i] / error_mean)
+                    agent.update_reward(1 * reward_batch[i] - 0.5 * error[i])
 
+                agent.calculate_return_and_adv()
                 policy_loss, value_loss = agent.update_policy()
+                # print(policy_loss, value_loss)
                 rewards.append(episode_reward)
-                reward_errors.append(np.sum(error) / error_mean)
+                reward_errors.append(np.sum(error))
                 if ep % 100 == 0:
                     logger.info(f"Iter: {iter // 2}, epoch: {ep}, reward of rl model: {np.mean(rewards)}, with error: {error_mean}")
 
@@ -247,7 +252,7 @@ if not PLOT_ONLY:
         plt.close()
 
     torch.save(model, f"./param/sysmodel_{VERSION}.pkl")
-    agent.save_param(f"param/rlmodel_new_{VERSION}.pkl")
+    agent.save_param(f"./param/rlmodel_new_{VERSION}.pkl")
 
     with open(f"./figs_{VERSION}/results.json", "w") as json_file:
         json.dump(

@@ -31,3 +31,30 @@ class ActorCritic(nn.Module):
         value_pred = self.critic(state)
         
         return action_pred, value_pred
+
+
+class ActorCriticCont(nn.Module):
+    def __init__(self, obs_size, hid_size, act_size):
+        super(ActorCriticCont, self).__init__()
+
+        self.base = nn.Sequential(
+            nn.Linear(obs_size, hid_size),
+            nn.ReLU(),
+        )
+        self.mu = nn.Sequential(
+            nn.Linear(hid_size, act_size),
+            nn.Tanh(),
+        )
+        self.var = nn.Sequential(
+            nn.Linear(hid_size, act_size),
+            nn.Softplus(),
+        )
+        self.value = nn.Sequential(
+            nn.Linear(obs_size, hid_size),
+            nn.ReLU(),
+            nn.Linear(hid_size, 1)
+        )
+
+    def forward(self, x):
+        base_out = self.base(x)
+        return self.mu(base_out), self.var(base_out), self.value(x)

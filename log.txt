@@ -1,1 +1,42 @@
-2022-10-18 23:40:12,082	INFO worker.py:1518 -- Started a local Ray instance.
+2022-10-19 00:21:24,567	INFO worker.py:1518 -- Started a local Ray instance.
+Traceback (most recent call last):
+  File "main.py", line 157, in <module>
+    ret = ray.get([worker.rollout.remote() for worker in Workers])
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/client_mode_hook.py", line 105, in wrapper
+    return func(*args, **kwargs)
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/worker.py", line 2269, in get
+    values, debugger_breakpoint = worker.get_objects(object_refs, timeout=timeout)
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/worker.py", line 683, in get_objects
+    self.deserialize_objects(data_metadata_pairs, object_refs),
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/worker.py", line 641, in deserialize_objects
+    return context.deserialize_objects(data_metadata_pairs, object_refs)
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/serialization.py", line 352, in deserialize_objects
+    obj = self._deserialize_object(data, metadata, object_ref)
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/serialization.py", line 241, in _deserialize_object
+    return self._deserialize_msgpack_data(data, metadata_fields)
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/serialization.py", line 196, in _deserialize_msgpack_data
+    python_objects = self._deserialize_pickle5_data(pickle5_data)
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/serialization.py", line 186, in _deserialize_pickle5_data
+    obj = pickle.loads(in_band)
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/torch/storage.py", line 222, in _load_from_bytes
+    return torch.load(io.BytesIO(b))
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/torch/serialization.py", line 713, in load
+    return _legacy_load(opened_file, map_location, pickle_module, **pickle_load_args)
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/torch/serialization.py", line 927, in _legacy_load
+    _sys_info = pickle_module.load(f, **pickle_load_args)
+KeyboardInterrupt
+Error in atexit._run_exitfuncs:
+Traceback (most recent call last):
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/client_mode_hook.py", line 105, in wrapper
+    return func(*args, **kwargs)
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/worker.py", line 1581, in shutdown
+    disconnect(_exiting_interpreter)
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/worker.py", line 2122, in disconnect
+    worker.import_thread.join_import_thread()
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/site-packages/ray/_private/import_thread.py", line 61, in join_import_thread
+    self.t.join()
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/threading.py", line 1011, in join
+    self._wait_for_tstate_lock()
+  File "/home/jiangzha/anaconda3/envs/ML/lib/python3.8/threading.py", line 1027, in _wait_for_tstate_lock
+    elif lock.acquire(block, timeout):
+KeyboardInterrupt

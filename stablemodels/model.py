@@ -9,6 +9,7 @@ class StableDynamicsModel(nn.Module):
     def __init__(self,
                  input_shape,
                  control_size=None,
+                 device = None,
                  alpha=0.9,
                  layer_sizes=[64, 64],
                  lr=3e-4,
@@ -20,6 +21,7 @@ class StableDynamicsModel(nn.Module):
             control_size = 0
         self._layer_sizes = layer_sizes
         self._lr = lr
+        self.device = device
         self._alpha = alpha
         self._lyapunov_function = LyapunovFunction((input_shape + control_size,),
                                                    layer_sizes=layer_sizes + [1],
@@ -35,6 +37,7 @@ class StableDynamicsModel(nn.Module):
         xu = x.squeeze()
         if self._act_size != 0:
             xu = torch.cat([x, u], dim=-1).squeeze()
+            xu_mask = torch.cat([torch.ones(size=x.size()), torch.zeros(size=u.size())], dim=-1).squeeze().to(self.device)
         if not xu.requires_grad:
             xu.requires_grad = True
         f = self._l1(xu.squeeze()).relu()
@@ -42,17 +45,18 @@ class StableDynamicsModel(nn.Module):
         f = self._l3(f)
         if len(xu.shape) == 1:
             xu = xu.unsqueeze(0)
-        lyapunov = self._lyapunov_function(xu).squeeze()
+        lyapunov = self._lyapunov_function(xu * xu_mask).squeeze()
         xu.retain_grad()
         lyapunov.backward(gradient=torch.ones_like(lyapunov), retain_graph=True)
         grad_v = xu.grad.clone()
-        gv = grad_v.view(-1, 1, *xu.shape[1:])
-        fv = grad_v.view(-1, *xu.shape[1:], 1)
+        gv = grad_v.view(-1, 1, xu.shape[-1])[:,:,:self._obs_size]
+        fv = f.view(-1, self._obs_size, 1)
         dot = (gv @ fv).squeeze()
-        orth = (dot + self._alpha * lyapunov).squeeze().relu() / grad_v.pow(2).sum()
+        orth = (dot + self._alpha * lyapunov).squeeze().relu() / gv.squeeze().pow(2).sum(-1)
         if len(orth.shape) == 0:
             orth.unsqueeze_(0)
-        return f - (torch.diag_embed(orth) @ grad_v)[:, :self._obs_size]
+        # return f - (torch.diag_embed(orth) @ grad_v)[:, :self._obs_size]
+        return f - (orth.reshape(-1,1) * gv.squeeze())[:, :self._obs_size]
 
     def predict(self, x, u=None):
         x = x.permute(1, 0, 2)
