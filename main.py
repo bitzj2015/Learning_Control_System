@@ -76,10 +76,10 @@ PRETRAIN = False
 NUM_WORKER = os.cpu_count()
 NUM_ITER = 1000
 EPOCH = 500
-BATCH_SIZE = 1024
+BATCH_SIZE = 256
 
 ppo_args = PPOArgs(agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
-rl_optimizer = optim.Adam(policy.parameters(), lr=1e-4)
+rl_optimizer = optim.Adam(policy.parameters(), lr=5e-4)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
@@ -108,7 +108,7 @@ class Worker(object):
     def update_param(self, new_policy):
         self.agent.policy.load_state_dict(new_policy.state_dict())
 
-    def rollout(self, max_step=100):
+    def rollout(self, max_step=100, rand=False):
         self.agent.policy.to(self.device)
         self.agent.device = self.device
 
@@ -126,6 +126,8 @@ class Worker(object):
             # RL agent outputs action
             state_batch.append(state)
             action = self.agent.take_action(state, training=False)
+            # if rand:
+            #     action = random.randint(0,1)
             action_batch.append(torch.tensor(action).reshape(-1,1).to(self.device))
 
             state, reward, done, _, _ = self.env.step(action)
@@ -176,13 +178,24 @@ if not PLOT_ONLY:
         reward_errors = []
 
         if iter % 2 == 0:
+            # Define system model
+            # model = StableDynamicsModel((INPUT_DIM,),                 # input shape
+            #                             control_size=1,       # action size
+            #                             device= device, 
+            #                             alpha=0.9,            # lyapunov constant
+            #                             layer_sizes=[64, 64], # NN layer sizes for lyapunov
+            #                             lr=3e-4,              # learning rate for dynamics model
+            #                             lyapunov_lr=3e-4,     # learning rate for lyapunov function
+            #                             lyapunov_eps=1e-3)    # penalty for equilibrium away from 0
+            # model = model.to(device)
+            # optimizer = optim.Adam(model.parameters(), lr=5e-4)
             for ep in range(EPOCH):
                 error = 0
                 state_batch = []
                 action_batch = []
                 next_state_batch = []
 
-                ret = ray.get([worker.rollout.remote(max_step=500) for worker in Workers])
+                ret = ray.get([worker.rollout.remote(max_step=500, rand=int(iter==0)) for worker in Workers])
                 for batch in ret:
                     state_batch += batch["state"]
                     action_batch += batch["action"]
@@ -201,7 +214,6 @@ if not PLOT_ONLY:
                     optimizer.zero_grad()
                     error.backward()
                     optimizer.step()
-
                 errors.append(error.item())
                 if ep % 100 == 0:
                     logger.info(f"Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
