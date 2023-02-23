@@ -14,6 +14,7 @@ parser = argparse.ArgumentParser(description='train rl model.')
 parser.add_argument('--env', type=int, dest="env", help='start point', default=0)
 parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
 parser.add_argument('--eval', type=int, dest="eval", help='eval', default=1)
+parser.add_argument('--weight', type=str, dest="weight", help='weight', default=0)
 args = parser.parse_args()
 
 
@@ -31,12 +32,16 @@ IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
 train_env = gym.make(ENV)
 test_env = gym.make(ENV)
+# print(torch.cuda.current_device())
+# print(torch.cuda.device_count())
+# print(torch.cuda.get_device_name(0))
+# print(torch.cuda.is_available())
 
-
+WEIGHT = args.weight
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 
 INPUT_DIM = train_env.observation_space.shape[0]
@@ -61,6 +66,7 @@ optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE)
 
 
 ppo_args = PPOArgs(agent_path=f"./param/ppo_policy_{ENV[:4]}.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
+# ppo_args = PPOArgs(agent_path=f"/home/asd/PycharmProjects/pythonProject1/Learning_Control_System/param/rlmodel_new_cp_error_5_epoch_100_iter_100.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
 agent = Agent(policy, optimizer, ppo_args, device)
 
 
@@ -68,7 +74,7 @@ MAX_EPISODES = 1000
 DISCOUNT_FACTOR = 0.99
 N_TRIALS = 25
 REWARD_MAX = -10000
-PRINT_EVERY = 10
+PRINT_EVERY = 5000
 
 EVAL_ONLY = args.eval
 train_rewards = []
@@ -106,7 +112,8 @@ if not EVAL_ONLY:
     plt.savefig(f"./results/ppo_{ENV[:4]}.jpg")
 
 else:
-    agent.load_param(name=f"./param/ppo_policy_{ENV[:4]}.pkl")
+    # agent.load_param(name=f"./param/ppo_policy_{ENV[:4]}.pkl")
+    agent.load_param(name=f"../param/rlmodel_new_cp_error_{WEIGHT}_epoch_20_iter_100_ver_2.pkl")
     for episode in range(1, PRINT_EVERY+1):
         test_reward = evaluate(test_env, agent, device)
         test_rewards.append(test_reward)
