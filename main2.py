@@ -77,7 +77,7 @@ else:
 PLOT_ONLY = args.if_plot
 PRETRAIN = False
 NUM_WORKER = os.cpu_count()
-NUM_ITER = 200
+NUM_ITER = 400
 EPOCH = 100
 BATCH_SIZE = 256
 
@@ -190,16 +190,16 @@ if not PLOT_ONLY:
             if ERR_WEIGHT == 0:
                 continue
             # Define system model
-            # model = StableDynamicsModel((INPUT_DIM,),  # input shape
-            #                             control_size=1,  # action size
-            #                             device=device,
-            #                             alpha=0.9,  # lyapunov constant
-            #                             layer_sizes=[64, 64],  # NN layer sizes for lyapunov
-            #                             lr=3e-4,  # learning rate for dynamics model
-            #                             lyapunov_lr=3e-4,  # learning rate for lyapunov function
-            #                             lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
-            # model = model.to(device)
-            # optimizer = optim.Adam(model.parameters(), lr=5e-4)
+            model = StableDynamicsModel((INPUT_DIM,),  # input shape
+                                        control_size=1,  # action size
+                                        device=device,
+                                        alpha=0.9,  # lyapunov constant
+                                        layer_sizes=[64, 64],  # NN layer sizes for lyapunov
+                                        lr=3e-4,  # learning rate for dynamics model
+                                        lyapunov_lr=3e-4,  # learning rate for lyapunov function
+                                        lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
+            model = model.to(device)
+            optimizer = optim.Adam(model.parameters(), lr=5e-4)
 
             # t2 = time.time()
             ret = ray.get([worker.rollout.remote(max_step=500, epoch=EPOCH, rand=int(iter == 0)) for worker in Workers])
