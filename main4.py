@@ -46,10 +46,12 @@ ENV_TYPE_LIST = [0, 1, 1]
 ROLLOUT_LEN_LIST = [500, 10000, 1000]
 LEARNING_RATE_LIST = [0.001, 0.001, 0.003]
 CONTROL_SIZE_LIST = [1, 1, 3]
+STOPPED_TYPE = [True, False, False]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
 CONTROL_SIZE = CONTROL_SIZE_LIST[args.env]
+SAMPLE_EARLY_STOPPED_TRACE_ONLY = STOPPED_TYPE[args.env]
 
 # Define environment
 SEED = args.seed
@@ -141,8 +143,6 @@ class Worker(object):
                 # RL agent outputs action
                 state_batch_cur.append(state)
                 action = self.agent.take_action(state, training=False)
-                # if rand:
-                #     action = random.randint(0,1)
                 action_batch_cur.append(torch.tensor(action).reshape(-1, CONTROL_SIZE).to(self.device))
 
                 state, reward, done, _, _ = self.env.step(action)
@@ -151,17 +151,22 @@ class Worker(object):
 
                 cnt += 1
                 episode_reward += reward
+
                 if cnt >= max_step:
                     break
-            if cnt < max_step:
+
+            if SAMPLE_EARLY_STOPPED_TRACE_ONLY:
+                if cnt < max_step:
+                    state_batch += state_batch_cur
+                    action_batch += action_batch_cur
+                    next_state_batch += next_state_batch_cur
+            
+            else:
                 state_batch += state_batch_cur
                 action_batch += action_batch_cur
-                next_state_batch += next_state_batch_cur
-                
+                next_state_batch += next_state_batch_cur 
+            
             avg_r += episode_reward
-        # print(avg_r/epoch)
-
-        # print("init_rollout:", time.time() - t1)
 
         return {
             "state": state_batch,
