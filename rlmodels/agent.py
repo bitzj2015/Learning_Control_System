@@ -13,7 +13,8 @@ class PPOArgs(object):
         discount_factor=0.99,
         normalize=False,
         agent_path="./param/ppo_policy.pkl",
-        cont_action=False
+        cont_action=False,
+        noise_sigma=0.2
     ):
         self.ppo_steps = ppo_steps
         self.ppo_clip = ppo_clip
@@ -22,6 +23,7 @@ class PPOArgs(object):
         self.agent_path = agent_path
         self.cont_action = cont_action
         self.rollout_len = rollout_len
+        self.noise_sigma = noise_sigma
 
 
 class Agent(object):
@@ -76,8 +78,9 @@ class Agent(object):
                     dist = distributions.Categorical(action_prob)
                     action = dist.sample()
 
-            if np.random.random() < 0.2:
-                return 0 - action.item()
+            if np.random.random() < self.args.noise_sigma:
+                return 1 - action.item()
+            
             return action.item()
 
         else:
@@ -99,7 +102,11 @@ class Agent(object):
                     action_mu, action_std, _ = self.policy(state)
                     dist = distributions.Normal(action_mu, action_std)
                     action = dist.sample()
-            # print(action.size(), log_prob_action.size())
+
+            noise = torch.normal(0, self.args.noise_sigma, size=action.size()).to(self.device)
+            action = torch.clamp(action + noise, min=-1, max=1)
+            
+            
             return action.tolist()[0]
 
 

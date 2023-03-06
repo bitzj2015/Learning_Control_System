@@ -50,9 +50,11 @@ class StableDynamicsModel(nn.Module):
         lyapunov.backward(gradient=torch.ones_like(lyapunov), retain_graph=True)
         grad_v = xu.grad.clone()
         gv = grad_v.view(-1, 1, xu.shape[-1])[:,:,:self._obs_size]
+
         fv = f.view(-1, self._obs_size, 1)
         dot = (gv @ fv).squeeze()
         orth = (dot + self._alpha * lyapunov).squeeze().relu() / gv.squeeze().pow(2).sum(-1)
+
         if len(orth.shape) == 0:
             orth.unsqueeze_(0)
         # return f - (torch.diag_embed(orth) @ grad_v)[:, :self._obs_size]

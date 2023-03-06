@@ -45,9 +45,11 @@ ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4']
 ENV_TYPE_LIST = [0, 1, 1]
 ROLLOUT_LEN_LIST = [500, 10000, 1000]
 LEARNING_RATE_LIST = [0.001, 0.001, 0.003]
+CONTROL_SIZE_LIST = [1, 1, 3]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
+CONTROL_SIZE = CONTROL_SIZE_LIST[args.env]
 
 # Define environment
 SEED = args.seed
@@ -88,7 +90,7 @@ agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
 model = StableDynamicsModel((INPUT_DIM,),  # input shape
-                            control_size=3,  # action size
+                            control_size=CONTROL_SIZE,  # action size
                             device=device,
                             alpha=0.9,  # lyapunov constant
                             layer_sizes=[64, 64],  # NN layer sizes for lyapunov
@@ -141,7 +143,7 @@ class Worker(object):
                 action = self.agent.take_action(state, training=False)
                 # if rand:
                 #     action = random.randint(0,1)
-                action_batch_cur.append(torch.tensor(action).reshape(-1, 1).to(self.device))
+                action_batch_cur.append(torch.tensor(action).reshape(-1, CONTROL_SIZE).to(self.device))
 
                 state, reward, done, _, _ = self.env.step(action)
                 state = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -157,7 +159,7 @@ class Worker(object):
                 next_state_batch += next_state_batch_cur
                 
             avg_r += episode_reward
-        print(avg_r/epoch)
+        # print(avg_r/epoch)
 
         # print("init_rollout:", time.time() - t1)
 
@@ -204,7 +206,7 @@ if not PLOT_ONLY:
                 continue
             # Define system model
             model = StableDynamicsModel((INPUT_DIM,),  # input shape
-                                        control_size=3,  # action size
+                                        control_size=CONTROL_SIZE,  # action size
                                         device=device,
                                         alpha=0.9,  # lyapunov constant
                                         layer_sizes=[64, 64],  # NN layer sizes for lyapunov
@@ -251,12 +253,16 @@ if not PLOT_ONLY:
                     # Predicted next state
                     prediction = model(state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE],
                                        action_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE])
+
+                    
+                    
                     error = ((prediction - next_state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE]) ** 2).sum(-1)
 
                     error = error.mean(0)
                     optimizer.zero_grad()
                     error.backward()
                     optimizer.step()
+
                 errors.append(error.item())
                 if ep % 100 == 0:
                     logger.info(f"Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
@@ -285,7 +291,7 @@ if not PLOT_ONLY:
                     # RL agent outputs action
                     state_batch.append(state)
                     action = agent.take_action(state)
-                    action_batch.append(torch.tensor(action).reshape(-1, 1).to(device))
+                    action_batch.append(torch.tensor(action).reshape(-1, CONTROL_SIZE).to(device))
 
                     state, reward, done, _, _ = env.step(action)
                     state = torch.FloatTensor(state).unsqueeze(0).to(device)
