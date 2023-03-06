@@ -77,7 +77,7 @@ class Agent(object):
                     action = dist.sample()
 
             if np.random.random() < 0.2:
-                return 1 - action.item()
+                return 0 - action.item()
             return action.item()
 
         else:

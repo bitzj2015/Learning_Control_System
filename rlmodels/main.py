@@ -11,10 +11,11 @@ import argparse
 
 
 parser = argparse.ArgumentParser(description='train rl model.')
-parser.add_argument('--env', type=int, dest="env", help='start point', default=0)
+parser.add_argument('--env', type=int, dest="env", help='start point', default=2)
 parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
-parser.add_argument('--eval', type=int, dest="eval", help='eval', default=1)
+parser.add_argument('--eval', type=int, dest="eval", help='eval', default=0)
 parser.add_argument('--weight', type=str, dest="weight", help='weight', default=0)
+parser.add_argument('--trainbad', type=int, dest="train_bad", help='train_bad', default=1)
 args = parser.parse_args()
 
 
@@ -25,7 +26,7 @@ subprocess.run(["mkdir", "-p", "results"])
 
 ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4']
 ENV_TYPE_LIST = [0, 1, 1]
-ROLLOUT_LEN_LIST = [500, 10000, 5000]
+ROLLOUT_LEN_LIST = [2000, 10000, 1000]
 LEARNING_RATE_LIST = [0.001, 0.001, 0.003]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
@@ -38,6 +39,7 @@ test_env = gym.make(ENV)
 # print(torch.cuda.is_available())
 
 WEIGHT = args.weight
+TRAIN_BAD = args.train_bad
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -74,7 +76,7 @@ MAX_EPISODES = 1000
 DISCOUNT_FACTOR = 0.99
 N_TRIALS = 25
 REWARD_MAX = -10000
-PRINT_EVERY = 5000
+PRINT_EVERY = 50
 
 EVAL_ONLY = args.eval
 train_rewards = []
@@ -113,7 +115,11 @@ if not EVAL_ONLY:
 
 else:
     # agent.load_param(name=f"./param/ppo_policy_{ENV[:4]}.pkl")
-    agent.load_param(name=f"../param/rlmodel_new_cp_error_{WEIGHT}_epoch_20_iter_100_ver_2.pkl")
+    if not TRAIN_BAD:
+        # agent.load_param(name=f"../param/rlmodel_new_cp_error_{WEIGHT}_epoch_100_iter_200_ver_3.pkl")
+        agent.load_param(name=f"../param/rlmodel_new_cp_error_{WEIGHT}_step_5000_epoch_50_iter_500_dist_20.pkl")
+    else:
+        agent.load_param(name=f"../param/rlmodel_new_cp_error_{WEIGHT}_step_5000_epoch_50_iter_500_dist_20.pkl")
     for episode in range(1, PRINT_EVERY+1):
         test_reward = evaluate(test_env, agent, device)
         test_rewards.append(test_reward)

@@ -77,7 +77,7 @@ else:
 PLOT_ONLY = args.if_plot
 PRETRAIN = False
 NUM_WORKER = os.cpu_count()
-NUM_ITER = 400
+NUM_ITER = 200
 EPOCH = 100
 BATCH_SIZE = 256
 
