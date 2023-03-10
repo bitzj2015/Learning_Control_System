@@ -57,4 +57,4 @@ class ActorCriticCont(nn.Module):
 
     def forward(self, x):
         base_out = self.base(x)
-        return self.mu(base_out), self.var(base_out), self.value(x)
+        return self.mu(base_out), self.var(base_out) + 1e-6, self.value(x)
