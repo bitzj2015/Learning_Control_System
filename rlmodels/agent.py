@@ -37,7 +37,7 @@ class Agent(object):
         self.values = []
         self.rewards = []
         self.returns = []
-        self.episode_reward = 0
+        self.episode_reward = 0.2
         self.device = device
 
 
@@ -79,7 +79,7 @@ class Agent(object):
                     action = dist.sample()
 
             if np.random.random() < self.args.noise_sigma:
-                return 1 - action.item()
+                return 0 - action.item()
             
             return action.item()
 
@@ -104,7 +104,7 @@ class Agent(object):
                     action = dist.sample()
 
             noise = torch.normal(0, self.args.noise_sigma, size=action.size()).to(self.device)
-            action = torch.clamp(action + noise, min=-1, max=1)
+            action = torch.clamp(action + noise, min=-2, max=2)
             
             
             return action.tolist()[0]

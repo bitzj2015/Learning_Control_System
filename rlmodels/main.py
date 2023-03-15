@@ -11,7 +11,7 @@ import argparse
 
 
 parser = argparse.ArgumentParser(description='train rl model.')
-parser.add_argument('--env', type=int, dest="env", help='start point', default=2)
+parser.add_argument('--env', type=int, dest="env", help='start point', default=5)
 parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
 parser.add_argument('--eval', type=int, dest="eval", help='eval', default=0)
 parser.add_argument('--weight', type=str, dest="weight", help='weight', default=0)
@@ -24,10 +24,10 @@ subprocess.run(["mkdir", "-p", "param"])
 subprocess.run(["mkdir", "-p", "results"])
 
 
-ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4']
-ENV_TYPE_LIST = [0, 1, 1]
-ROLLOUT_LEN_LIST = [2000, 10000, 1000]
-LEARNING_RATE_LIST = [0.001, 0.001, 0.003]
+ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
+ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
+ROLLOUT_LEN_LIST = [2000, 10000, 1000, 1000, 500, 200]
+LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 0.003, 0.001, 0.001]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
