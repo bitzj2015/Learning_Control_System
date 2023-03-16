@@ -67,12 +67,12 @@ LEARNING_RATE = LEARNING_RATE_LIST[args.env]
 optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE)
 
 
-ppo_args = PPOArgs(agent_path=f"./param/ppo_policy_{ENV[:4]}.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
+ppo_args = PPOArgs(agent_path=f"./param/ppo_policy_{ENV[:4]}.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN, noise_sigma=0)
 # ppo_args = PPOArgs(agent_path=f"/home/asd/PycharmProjects/pythonProject1/Learning_Control_System/param/rlmodel_new_cp_error_5_epoch_100_iter_100.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
 agent = Agent(policy, optimizer, ppo_args, device)
 
 
-MAX_EPISODES = 1000
+MAX_EPISODES = 3000
 DISCOUNT_FACTOR = 0.99
 N_TRIALS = 25
 REWARD_MAX = -10000
