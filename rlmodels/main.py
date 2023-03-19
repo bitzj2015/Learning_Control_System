@@ -27,7 +27,7 @@ subprocess.run(["mkdir", "-p", "results"])
 ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
 ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [2000, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 0.003, 0.001, 0.001]
+LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 0.003, 0.001, 5e-6]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
@@ -72,7 +72,7 @@ ppo_args = PPOArgs(agent_path=f"./param/ppo_policy_{ENV[:4]}.pkl", cont_action=I
 agent = Agent(policy, optimizer, ppo_args, device)
 
 
-MAX_EPISODES = 3000
+MAX_EPISODES = 60000
 DISCOUNT_FACTOR = 0.99
 N_TRIALS = 25
 REWARD_MAX = -10000

@@ -15,7 +15,7 @@ import argparse
 import time
 
 parser = argparse.ArgumentParser(description='train rl model.')
-parser.add_argument('--env', type=int, dest="env", help='start point', default=2)
+parser.add_argument('--env', type=int, dest="env", help='start point', default=5)
 parser.add_argument('--errweight', type=float, dest="err_weight", help='err_weight', default=5)
 parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
 parser.add_argument('--version', type=str, dest="version", help='version', default="test_cp")
@@ -41,12 +41,12 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Environment setups
-ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4']
-ENV_TYPE_LIST = [0, 1, 1]
-ROLLOUT_LEN_LIST = [500, 10000, 1000]
-LEARNING_RATE_LIST = [0.001, 0.001, 0.003]
-CONTROL_SIZE_LIST = [1, 1, 3]
-STOPPED_TYPE = [True, False, False]
+ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1','Pendulum-v1']
+ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
+ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
+LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 0.003, 0.001, 0.001]
+CONTROL_SIZE_LIST = [1, 1, 3, 17, 1, 1]
+STOPPED_TYPE = [True, False, False, False, True, False]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
@@ -57,7 +57,7 @@ SAMPLE_EARLY_STOPPED_TRACE_ONLY = STOPPED_TYPE[args.env]
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 cpu_device = torch.device("cpu")
 env = gym.make(ENV)
 
@@ -82,12 +82,12 @@ PLOT_ONLY = args.if_plot
 PRETRAIN = False
 NUM_WORKER = os.cpu_count()
 NUM_ITER = 800
-EPOCH = 100
+EPOCH = 50
 BATCH_SIZE = 256
 
 ppo_args = PPOArgs(agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}.pkl", cont_action=IS_CONTINUOUS_ENV,
-                   rollout_len=ROLLOUT_LEN)
-rl_optimizer = optim.Adam(policy.parameters(), lr=5e-5)
+                   rollout_len=ROLLOUT_LEN, noise_sigma=0)
+rl_optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
@@ -219,10 +219,10 @@ if not PLOT_ONLY:
                                         lyapunov_lr=3e-4,  # learning rate for lyapunov function
                                         lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
             model = model.to(device)
-            optimizer = optim.Adam(model.parameters(), lr=5e-4)
+            optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
             # t2 = time.time()
-            ret = ray.get([worker.rollout.remote(max_step=1000, epoch=EPOCH, rand=int(iter == 0)) for worker in Workers])
+            ret = ray.get([worker.rollout.remote(max_step=ROLLOUT_LEN, epoch=EPOCH, rand=int(iter == 0)) for worker in Workers])
             # print("rollout:", time.time() - t2)
             state_batch = []
             action_batch = []
@@ -305,7 +305,7 @@ if not PLOT_ONLY:
 
                     cnt += 1
                     episode_reward += reward
-                    if cnt == 5000:
+                    if cnt == ROLLOUT_LEN:
                         break
 
                 state_batch = torch.cat(state_batch)
@@ -387,7 +387,7 @@ else:
     plt.figure()
     plt.xlabel("Iteration")
     plt.plot(avg_rewards)
-    plt.plot(avg_rewards0)
+    # plt.plot(avg_rewards0)
     plt.ylabel("Reward of RL controller (Max: 100)")
     plt.savefig(f"./figs_{VERSION}/avg_rewards.jpg")
 
