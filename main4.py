@@ -46,12 +46,15 @@ ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
 LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 0.003, 0.001, 0.001]
 CONTROL_SIZE_LIST = [1, 1, 3, 17, 1, 1]
+CONTROL_SCALE_LIST = [1, 1, 1, 1, 1, 2]
 STOPPED_TYPE = [True, False, False, False, True, False]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
 CONTROL_SIZE = CONTROL_SIZE_LIST[args.env]
 SAMPLE_EARLY_STOPPED_TRACE_ONLY = STOPPED_TYPE[args.env]
+CONTROL_SCALE = CONTROL_SCALE_LIST[args.env]
+
 
 # Define environment
 SEED = args.seed
@@ -75,7 +78,7 @@ if not IS_CONTINUOUS_ENV:
 
 else:
     OUTPUT_DIM = env.action_space.shape[0]
-    policy = ActorCriticCont(INPUT_DIM, HIDDEN_DIM, OUTPUT_DIM).to(cpu_device)
+    policy = ActorCriticCont(INPUT_DIM, HIDDEN_DIM, OUTPUT_DIM, CONTROL_SCALE).to(cpu_device)
     policy.apply(init_weights)
 
 PLOT_ONLY = args.if_plot

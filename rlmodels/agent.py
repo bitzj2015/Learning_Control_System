@@ -8,7 +8,7 @@ class PPOArgs(object):
     def __init__(
         self,
         rollout_len=500,
-        ppo_steps=50,
+        ppo_steps=5,
         ppo_clip=0.1,
         discount_factor=0.99,
         normalize=False,
