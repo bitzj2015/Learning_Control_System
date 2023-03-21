@@ -57,7 +57,7 @@ SAMPLE_EARLY_STOPPED_TRACE_ONLY = STOPPED_TYPE[args.env]
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 cpu_device = torch.device("cpu")
 env = gym.make(ENV)
 
@@ -321,9 +321,9 @@ if not PLOT_ONLY:
                 error_mean = np.mean(error)
                 for i in range(len(reward_batch)):
                     if i == 0:
-                        agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * (error[i] - 0))
+                        agent.update_reward(.1 * reward_batch[i] - ERR_WEIGHT * (error[i] - 0))
                     else:
-                        agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * (error[i] - error[i - 1]))
+                        agent.update_reward(.1 * reward_batch[i] - ERR_WEIGHT * (error[i] - error[i - 1]))
                     # agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * error[i])
 
                 agent.calculate_return_and_adv()

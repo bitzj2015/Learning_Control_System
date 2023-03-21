@@ -34,7 +34,7 @@ class ActorCritic(nn.Module):
 
 
 class ActorCriticCont(nn.Module):
-    def __init__(self, obs_size, hid_size, act_size):
+    def __init__(self, obs_size, hid_size, act_size, scale=1):
         super(ActorCriticCont, self).__init__()
 
         self.base = nn.Sequential(
@@ -52,9 +52,12 @@ class ActorCriticCont(nn.Module):
         self.value = nn.Sequential(
             nn.Linear(obs_size, hid_size),
             nn.ReLU(),
+            nn.Linear(hid_size, hid_size),
+            nn.ReLU(),
             nn.Linear(hid_size, 1)
         )
+        self.scale = scale
 
     def forward(self, x):
         base_out = self.base(x)
-        return self.mu(base_out), self.var(base_out) + 1e-6, self.value(x)
+        return self.scale * self.mu(base_out), self.var(base_out) + 1e-4, self.value(x)

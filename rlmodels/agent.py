@@ -8,7 +8,7 @@ class PPOArgs(object):
     def __init__(
         self,
         rollout_len=500,
-        ppo_steps=5,
+        ppo_steps=50,
         ppo_clip=0.1,
         discount_factor=0.99,
         normalize=False,
@@ -102,6 +102,7 @@ class Agent(object):
                     action_mu, action_std, _ = self.policy(state)
                     dist = distributions.Normal(action_mu, action_std)
                     action = dist.sample()
+                    action = torch.clamp(action, min=-2, max=2)
 
             noise = torch.normal(0, self.args.noise_sigma, size=action.size()).to(self.device)
             action = torch.clamp(action + noise, min=-2, max=2)
@@ -111,7 +112,7 @@ class Agent(object):
 
 
     def update_reward(self, reward):
-        self.rewards.append(reward)
+        self.rewards.append(reward / 100)
         self.episode_reward += reward
 
 
