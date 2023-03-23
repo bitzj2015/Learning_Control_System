@@ -27,7 +27,7 @@ subprocess.run(["mkdir", "-p", "results"])
 ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
 ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [2000, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 0.003, 0.001, 1e-3]
+LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 0.003, 0.001, 4e-5]
 CONTROL_SCALE_LIST = [1, 1, 1, 1, 1, 2]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
@@ -45,7 +45,7 @@ TRAIN_BAD = args.train_bad
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 
 INPUT_DIM = train_env.observation_space.shape[0]

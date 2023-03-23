@@ -103,7 +103,7 @@ model = StableDynamicsModel((INPUT_DIM,),  # input shape
                             lyapunov_lr=3e-4,  # learning rate for lyapunov function
                             lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
 model = model.to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=2e-5)
 
 
 @ray.remote
