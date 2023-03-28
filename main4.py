@@ -19,10 +19,12 @@ parser.add_argument('--env', type=int, dest="env", help='start point', default=5
 parser.add_argument('--errweight', type=float, dest="err_weight", help='err_weight', default=5)
 parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
 parser.add_argument('--version', type=str, dest="version", help='version', default="test_cp")
+parser.add_argument('--base', type=str, dest="base", help='base', default="4e-5_ver_3")
 parser.add_argument('--plot', action="store_true", dest="if_plot", help='if plot')
 args = parser.parse_args()
 
 VERSION = args.version
+BASE = args.base
 ERR_WEIGHT = args.err_weight
 subprocess.run(["mkdir", "-p", f"figs_{VERSION}"])
 subprocess.run(["mkdir", "-p", "param"])
@@ -41,7 +43,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Environment setups
-ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1','Pendulum-v1']
+ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
 ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
 LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 0.003, 0.001, 0.001]
@@ -54,7 +56,6 @@ ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
 CONTROL_SIZE = CONTROL_SIZE_LIST[args.env]
 SAMPLE_EARLY_STOPPED_TRACE_ONLY = STOPPED_TYPE[args.env]
 CONTROL_SCALE = CONTROL_SCALE_LIST[args.env]
-
 
 # Define environment
 SEED = args.seed
@@ -88,9 +89,9 @@ NUM_ITER = 800
 EPOCH = 50
 BATCH_SIZE = 256
 
-ppo_args = PPOArgs(agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}.pkl", cont_action=IS_CONTINUOUS_ENV,
+ppo_args = PPOArgs(agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl", cont_action=IS_CONTINUOUS_ENV,
                    rollout_len=ROLLOUT_LEN, noise_sigma=0)
-rl_optimizer = optim.Adam(policy.parameters(), lr=1e-4)
+rl_optimizer = optim.Adam(policy.parameters(), lr=2e-6)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
@@ -103,7 +104,7 @@ model = StableDynamicsModel((INPUT_DIM,),  # input shape
                             lyapunov_lr=3e-4,  # learning rate for lyapunov function
                             lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
 model = model.to(device)
-optimizer = optim.Adam(model.parameters(), lr=2e-5)
+optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 
 @ray.remote
@@ -163,12 +164,12 @@ class Worker(object):
                     state_batch += state_batch_cur
                     action_batch += action_batch_cur
                     next_state_batch += next_state_batch_cur
-            
+
             else:
                 state_batch += state_batch_cur
                 action_batch += action_batch_cur
-                next_state_batch += next_state_batch_cur 
-            
+                next_state_batch += next_state_batch_cur
+
             avg_r += episode_reward
 
         return {
@@ -195,7 +196,7 @@ if not PLOT_ONLY:
         model = torch.load("param/sysmodel.pkl", map_location=device)
 
     else:
-        RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}.pkl"
+        RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl"
         start_ep = 0
 
     agent.load_param(RL_PATH, device)
@@ -225,7 +226,8 @@ if not PLOT_ONLY:
             optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
             # t2 = time.time()
-            ret = ray.get([worker.rollout.remote(max_step=ROLLOUT_LEN, epoch=EPOCH, rand=int(iter == 0)) for worker in Workers])
+            ret = ray.get(
+                [worker.rollout.remote(max_step=ROLLOUT_LEN, epoch=EPOCH, rand=int(iter == 0)) for worker in Workers])
             # print("rollout:", time.time() - t2)
             state_batch = []
             action_batch = []
@@ -262,8 +264,6 @@ if not PLOT_ONLY:
                     prediction = model(state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE],
                                        action_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE])
 
-                    
-                    
                     error = ((prediction - next_state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE]) ** 2).sum(-1)
 
                     error = error.mean(0)
@@ -373,7 +373,7 @@ else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
     with open(f"./figs_cp_error_0_step_5000_epoch_50_iter_500_dist_20/results.json", "r") as json_file:
-        data1 =json.load(json_file)
+        data1 = json.load(json_file)
 
     avg_errors = data["error"]
     avg_rewards = data["reward"]

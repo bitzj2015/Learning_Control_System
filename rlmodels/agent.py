@@ -9,7 +9,7 @@ class PPOArgs(object):
         self,
         rollout_len=500,
         ppo_steps=5,
-        ppo_clip=0.1,
+        ppo_clip=0.2,
         discount_factor=0.99,
         normalize=False,
         agent_path="./param/ppo_policy.pkl",
@@ -112,7 +112,7 @@ class Agent(object):
 
 
     def update_reward(self, reward):
-        self.rewards.append(reward / 100)
+        self.rewards.append((reward +8.1)/ 8.1)
         self.episode_reward += reward
 
 
