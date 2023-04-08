@@ -372,7 +372,7 @@ if not PLOT_ONLY:
 else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
-    with open(f"./figs_pen_error_0_step_500_epoch_50_iter_400_dist_0_ver_12/results.json", "r") as json_file:
+    with open(f"./figs_pen_error_0_step_500_epoch_50_iter_400_dist_0_ver_11/results.json", "r") as json_file:
         data1 = json.load(json_file)
 
     avg_errors = data["error"]

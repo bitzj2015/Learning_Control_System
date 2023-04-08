@@ -12,8 +12,8 @@ import argparse
 parser = argparse.ArgumentParser(description='train rl model.')
 parser.add_argument('--env', type=int, dest="env", help='start point', default=5)
 parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
-parser.add_argument('--eval', type=int, dest="eval", help='eval', default=1)
-parser.add_argument('--weight', type=str, dest="weight", help='weight', default=0)
+parser.add_argument('--eval', type=int, dest="eval", help='eval', default=0)
+parser.add_argument('--weight', type=float, dest="weight", help='weight', default=0)
 parser.add_argument('--trainbad', type=int, dest="train_bad", help='train_bad', default=1)
 parser.add_argument('--version', type=str, dest="version", help='version', default="4e-5")
 args = parser.parse_args()
@@ -65,7 +65,7 @@ LEARNING_RATE = LEARNING_RATE_LIST[args.env]
 optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE)
 
 ppo_args = PPOArgs(agent_path=f"./param/ppo_policy_{ENV[:4]}.pkl", cont_action=IS_CONTINUOUS_ENV,
-                   rollout_len=ROLLOUT_LEN, noise_sigma=0)
+                   rollout_len=ROLLOUT_LEN, noise_sigma=1.5)
 # ppo_args = PPOArgs(agent_path=f"/home/asd/PycharmProjects/pythonProject1/Learning_Control_System/param/rlmodel_new_cp_error_5_epoch_100_iter_100.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
 agent = Agent(policy, optimizer, ppo_args, device)
 
@@ -73,7 +73,7 @@ MAX_EPISODES = 60000
 DISCOUNT_FACTOR = 0.99
 N_TRIALS = 25
 REWARD_MAX = -10000
-PRINT_EVERY = 50
+PRINT_EVERY = 50000
 
 EVAL_ONLY = args.eval
 train_rewards = []
@@ -112,11 +112,12 @@ if not EVAL_ONLY:
 
 else:
     # agent.load_param(name=f"./param/ppo_policy_{ENV[:4]}.pkl")
-    if not WEIGHT:
+    print("weight:", WEIGHT)
+    if WEIGHT == 0:
         # agent.load_param(name=f"../param/rlmodel_new_cp_error_{WEIGHT}_epoch_100_iter_200_ver_3.pkl")
-        agent.load_param(name=f"../param/rlmodel_new_cp_error_{WEIGHT}_step_5000_epoch_50_iter_500_dist_20.pkl")
-    else:
         agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_0_ver_12.pkl")
+    else:
+        agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_0_ver_1.pkl")
     for episode in range(1, PRINT_EVERY + 1):
         test_reward = evaluate(test_env, agent, device)
         test_rewards.append(test_reward)
