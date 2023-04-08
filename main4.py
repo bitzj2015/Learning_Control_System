@@ -85,13 +85,13 @@ else:
 PLOT_ONLY = args.if_plot
 PRETRAIN = False
 NUM_WORKER = os.cpu_count()
-NUM_ITER = 800
+NUM_ITER = 600
 EPOCH = 50
 BATCH_SIZE = 256
 
 ppo_args = PPOArgs(agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl", cont_action=IS_CONTINUOUS_ENV,
                    rollout_len=ROLLOUT_LEN, noise_sigma=0)
-rl_optimizer = optim.Adam(policy.parameters(), lr=2e-6)
+rl_optimizer = optim.Adam(policy.parameters(), lr=1e-5)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
@@ -324,9 +324,9 @@ if not PLOT_ONLY:
                 error_mean = np.mean(error)
                 for i in range(len(reward_batch)):
                     if i == 0:
-                        agent.update_reward(.1 * reward_batch[i] - ERR_WEIGHT * (error[i] - 0))
+                        agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * (error[i] - 0))
                     else:
-                        agent.update_reward(.1 * reward_batch[i] - ERR_WEIGHT * (error[i] - error[i - 1]))
+                        agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * (error[i] - error[i - 1]))
                     # agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * error[i])
 
                 agent.calculate_return_and_adv()
@@ -372,7 +372,7 @@ if not PLOT_ONLY:
 else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
-    with open(f"./figs_cp_error_0_step_5000_epoch_50_iter_500_dist_20/results.json", "r") as json_file:
+    with open(f"./figs_pen_error_0_step_500_epoch_50_iter_400_dist_0_ver_12/results.json", "r") as json_file:
         data1 = json.load(json_file)
 
     avg_errors = data["error"]
@@ -390,7 +390,7 @@ else:
     plt.figure()
     plt.xlabel("Iteration")
     plt.plot(avg_rewards)
-    # plt.plot(avg_rewards0)
+    plt.plot(avg_rewards0)
     plt.ylabel("Reward of RL controller (Max: 100)")
     plt.savefig(f"./figs_{VERSION}/avg_rewards.jpg")
 
