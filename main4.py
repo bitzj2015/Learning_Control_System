@@ -17,6 +17,7 @@ import time
 parser = argparse.ArgumentParser(description='train rl model.')
 parser.add_argument('--env', type=int, dest="env", help='start point', default=5)
 parser.add_argument('--errweight', type=float, dest="err_weight", help='err_weight', default=5)
+parser.add_argument('--dist', type=float, dest="dist", help='dist', default=0)
 parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
 parser.add_argument('--version', type=str, dest="version", help='version', default="test_cp")
 parser.add_argument('--base', type=str, dest="base", help='base', default="4e-5_ver_3")
@@ -26,6 +27,7 @@ args = parser.parse_args()
 VERSION = args.version
 BASE = args.base
 ERR_WEIGHT = args.err_weight
+DIST = args.dist
 subprocess.run(["mkdir", "-p", f"figs_{VERSION}"])
 subprocess.run(["mkdir", "-p", "param"])
 subprocess.run(["mkdir", "-p", "logs"])
@@ -90,8 +92,8 @@ EPOCH = 50
 BATCH_SIZE = 256
 
 ppo_args = PPOArgs(agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl", cont_action=IS_CONTINUOUS_ENV,
-                   rollout_len=ROLLOUT_LEN, noise_sigma=0)
-rl_optimizer = optim.Adam(policy.parameters(), lr=1e-5)
+                   rollout_len=ROLLOUT_LEN, noise_sigma=DIST)
+rl_optimizer = optim.Adam(policy.parameters(), lr=2e-5)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
@@ -203,7 +205,7 @@ if not PLOT_ONLY:
     Workers = [Worker.remote(ENV, deepcopy(agent), cpu_device, RL_PATH) for _ in range(NUM_WORKER)]
     agent.policy.to(device)
 
-    high_reward = 0
+    high_reward = -1000
     for iter in range(start_ep, start_ep + NUM_ITER):
         errors = []
         rewards = []
@@ -372,7 +374,7 @@ if not PLOT_ONLY:
 else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
-    with open(f"./figs_pen_error_0_step_500_epoch_50_iter_400_dist_0_ver_11/results.json", "r") as json_file:
+    with open(f"./figs_pen_error_0_step_500_epoch_50_iter_400_dist_1_5_ver_3/results.json", "r") as json_file:
         data1 = json.load(json_file)
 
     avg_errors = data["error"]
