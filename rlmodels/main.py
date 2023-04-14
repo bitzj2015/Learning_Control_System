@@ -29,11 +29,15 @@ ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [2000, 10000, 1000, 1000, 500, 200]
 LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 1e-5, 0.001, 5e-5]
 CONTROL_SCALE_LIST = [1, 1, 1, 0.4, 1, 2]
+REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
+REWARD_SCALE_BETA_LIST = [1, 1, 1, 1, 1, 8.1]
 ENV = ENV_LIST[args.env]
 VERSION = args.version
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
 CONTROL_SCALE = CONTROL_SCALE_LIST[args.env]
+REWARD_SCALE_ALPHA = REWARD_SCALE_ALPHA_LIST[args.env]
+REWARD_SCALE_BETA = REWARD_SCALE_BETA_LIST[args.env]
 train_env = gym.make(ENV)
 test_env = gym.make(ENV)
 # print(torch.cuda.current_device())
@@ -69,7 +73,9 @@ LEARNING_RATE = LEARNING_RATE_LIST[args.env]
 optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE)
 
 ppo_args = PPOArgs(agent_path=f"./param/ppo_policy_{ENV[:4]}.pkl", cont_action=IS_CONTINUOUS_ENV,
-                   rollout_len=ROLLOUT_LEN, noise_sigma=DIST)
+                   rollout_len=ROLLOUT_LEN, noise_sigma=DIST,
+                   reward_scaling_alpha=REWARD_SCALE_ALPHA,
+                   reward_scaling_beta=REWARD_SCALE_BETA)
 # ppo_args = PPOArgs(agent_path=f"/home/asd/PycharmProjects/pythonProject1/Learning_Control_System/param/rlmodel_new_cp_error_5_epoch_100_iter_100.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
 agent = Agent(policy, optimizer, ppo_args, device)
 

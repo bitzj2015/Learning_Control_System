@@ -52,12 +52,16 @@ LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 0.003, 0.001, 0.001]
 CONTROL_SIZE_LIST = [1, 1, 3, 17, 1, 1]
 CONTROL_SCALE_LIST = [1, 1, 1, 1, 1, 2]
 STOPPED_TYPE = [True, False, False, False, True, False]
+REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
+REWARD_SCALE_BETA_LIST = [1, 1, 1, 1, 1, 8.1]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
 CONTROL_SIZE = CONTROL_SIZE_LIST[args.env]
 SAMPLE_EARLY_STOPPED_TRACE_ONLY = STOPPED_TYPE[args.env]
 CONTROL_SCALE = CONTROL_SCALE_LIST[args.env]
+REWARD_SCALE_ALPHA = REWARD_SCALE_ALPHA_LIST[args.env]
+REWARD_SCALE_BETA = REWARD_SCALE_BETA_LIST[args.env]
 
 # Define environment
 SEED = args.seed
@@ -91,8 +95,14 @@ NUM_ITER = 600
 EPOCH = 50
 BATCH_SIZE = 256
 
-ppo_args = PPOArgs(agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl", cont_action=IS_CONTINUOUS_ENV,
-                   rollout_len=ROLLOUT_LEN, noise_sigma=DIST)
+ppo_args = PPOArgs(
+    agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl",              
+    cont_action=IS_CONTINUOUS_ENV,
+    rollout_len=ROLLOUT_LEN, 
+    noise_sigma=DIST,
+    reward_scaling_alpha=REWARD_SCALE_ALPHA,
+    reward_scaling_beta=REWARD_SCALE_BETA
+)
 rl_optimizer = optim.Adam(policy.parameters(), lr=2e-5)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
