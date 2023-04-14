@@ -14,7 +14,9 @@ class PPOArgs(object):
         normalize=False,
         agent_path="./param/ppo_policy.pkl",
         cont_action=False,
-        noise_sigma=0.2
+        noise_sigma=0.2,
+        reward_scaling_alpha=8.1,
+        reward_scaling_beta=8.1
     ):
         self.ppo_steps = ppo_steps
         self.ppo_clip = ppo_clip
@@ -24,6 +26,8 @@ class PPOArgs(object):
         self.cont_action = cont_action
         self.rollout_len = rollout_len
         self.noise_sigma = noise_sigma
+        self.alpha = reward_scaling_alpha
+        self.beta = reward_scaling_beta
 
 
 class Agent(object):
@@ -112,7 +116,7 @@ class Agent(object):
 
 
     def update_reward(self, reward):
-        self.rewards.append((reward +8.1)/ 8.1)
+        self.rewards.append((reward + self.args.alpha)/ self.args.beta)
         self.episode_reward += reward
 
 
