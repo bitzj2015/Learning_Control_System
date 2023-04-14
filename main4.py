@@ -93,7 +93,7 @@ BATCH_SIZE = 256
 
 ppo_args = PPOArgs(agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl", cont_action=IS_CONTINUOUS_ENV,
                    rollout_len=ROLLOUT_LEN, noise_sigma=DIST)
-rl_optimizer = optim.Adam(policy.parameters(), lr=2e-5)
+rl_optimizer = optim.Adam(policy.parameters(), lr=1e-5)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
@@ -374,7 +374,7 @@ if not PLOT_ONLY:
 else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
-    with open(f"./figs_pen_error_0_step_500_epoch_50_iter_400_dist_1_5_ver_3/results.json", "r") as json_file:
+    with open(f"./figs_pen_error_0_step_500_epoch_50_iter_400_dist_2_ver_5/results.json", "r") as json_file:
         data1 = json.load(json_file)
 
     avg_errors = data["error"]
