@@ -15,9 +15,9 @@ parser.add_argument('--seed', type=int, dest="seed", help='random seed', default
 parser.add_argument('--eval', type=int, dest="eval", help='eval', default=0)
 parser.add_argument('--dist', type=float, dest="dist", help='dist', default=0)
 parser.add_argument('--weight', type=int, dest="weight", help='weight', default=0)
-parser.add_argument('--trainbad', type=int, dest="train_bad", help='train_bad', default=1)
+parser.add_argument('--train-base', type=int, dest="train_base", help='train_basecd', default=0)
 parser.add_argument('--version', type=str, dest="version", help='version', default="4e-5")
-parser.add_argument('--ver', type=int, dest="ver", help='ver', default=1)
+parser.add_argument('--ver', type=str, dest="ver", help='ver', default="1")
 args = parser.parse_args()
 
 subprocess.run(["mkdir", "-p", "logs"])
@@ -26,7 +26,7 @@ subprocess.run(["mkdir", "-p", "results"])
 
 ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
 ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
-ROLLOUT_LEN_LIST = [2000, 10000, 1000, 1000, 500, 200]
+ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
 LEARNING_RATE_LIST = [0.001, 0.001, 9.8e-5, 4e-5, 0.001, 5e-5]
 CONTROL_SCALE_LIST = [1, 1, 1, 0.4, 1, 2]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
@@ -48,7 +48,7 @@ test_env = gym.make(ENV)
 WEIGHT = args.weight
 DIST = args.dist
 VER = args.ver
-TRAIN_BAD = args.train_bad
+TRAIN_BASE = args.train_base
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -84,7 +84,7 @@ DISCOUNT_FACTOR = 0.99
 N_TRIALS = 25
 REWARD_MAX = -10000
 PRINT_EVERY = 50
-PRINT_MAX = 5000
+PRINT_MAX = 500
 
 EVAL_ONLY = args.eval
 train_rewards = []
@@ -124,21 +124,24 @@ if not EVAL_ONLY:
 else:
     # agent.load_param(name=f"./param/ppo_policy_{ENV[:4]}.pkl")
     print("weight:", WEIGHT)
-    if DIST == 0:
-        if WEIGHT == 0:
-            # agent.load_param(name=f"../param/rlmodel_new_cp_error_{WEIGHT}_epoch_100_iter_200_ver_3.pkl")
-            agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_0_ver_12.pkl")
-        else:
-            agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_0_ver_{VER}.pkl")
-    elif DIST == 1.5:
-        agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_1_5_ver_{VER}.pkl")
+    if TRAIN_BASE == 1:
+        agent.load_param(name=f"../rlmodels/param/ppo_policy_Hopp_9e-5_ver_1.pkl")
     else:
-        agent.load_param(
-            name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_{int(DIST)}_ver_{VER}.pkl")
+        if DIST == 0:
+            if WEIGHT == 0:
+                # agent.load_param(name=f"../param/rlmodel_new_cp_error_{WEIGHT}_epoch_100_iter_200_ver_3.pkl")
+                agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_0_ver_000.pkl")
+            else:
+                agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_0_ver_{VER}.pkl")
+        elif DIST == 1.5:
+            agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_1_5_ver_{VER}.pkl")
+        else:
+            agent.load_param(
+                name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_{int(DIST)}_ver_{VER}.pkl")
     for episode in range(1, PRINT_MAX + 1):
         test_reward = evaluate(test_env, agent, device)
         test_rewards.append(test_reward)
-        mean_test_rewards = np.mean(test_rewards[-N_TRIALS:])
+        mean_test_rewards = np.mean(test_rewards)
 
         if episode % PRINT_MAX == 0:
             print(f'| Episode: {episode:3} | Mean Test Rewards: {mean_test_rewards:5.1f} |')

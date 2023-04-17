@@ -67,7 +67,7 @@ REWARD_SCALE_BETA = REWARD_SCALE_BETA_LIST[args.env]
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 cpu_device = torch.device("cpu")
 env = gym.make(ENV)
 
@@ -104,7 +104,7 @@ ppo_args = PPOArgs(
     reward_scaling_alpha=REWARD_SCALE_ALPHA,
     reward_scaling_beta=REWARD_SCALE_BETA
 )
-rl_optimizer = optim.Adam(policy.parameters(), lr=2e-5)
+rl_optimizer = optim.Adam(policy.parameters(), lr=9.8e-5)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
@@ -209,7 +209,10 @@ if not PLOT_ONLY:
         model = torch.load("param/sysmodel.pkl", map_location=device)
 
     else:
-        RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl"
+        if IS_CONTINUOUS_ENV == 1:
+            RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl"
+        else:
+            RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}.pkl"
         start_ep = 0
 
     agent.load_param(RL_PATH, device)
@@ -353,6 +356,7 @@ if not PLOT_ONLY:
                         f"Iter: {iter // 2}, epoch: {ep}, reward of rl model: {np.mean(rewards[-100:])}, with error: {error_mean}")
             if np.mean(rewards[-100:]) > high_reward:
                 agent.save_param(f"./param/rlmodel_new_{VERSION}.pkl")
+                # print("save param")
                 high_reward = np.mean(rewards)
 
             ret = ray.get([worker.update_param.remote(agent.policy.to(cpu_device)) for worker in Workers])
@@ -370,6 +374,7 @@ if not PLOT_ONLY:
             plt.plot(np.array(rewards) - np.array(reward_errors))
             plt.ylabel("Rewards of rl models")
             plt.savefig(f"./figs_{VERSION}/reward_{iter // 2}.jpg")
+            # print("print figure")
             avg_rewards.append(np.mean(rewards[-100:]))
             avg_reward_errors.append(np.mean(reward_errors))
         plt.close()
@@ -385,7 +390,7 @@ if not PLOT_ONLY:
 else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
-    with open(f"./figs_pen_error_0_step_500_epoch_50_iter_400_dist_2_ver_5/results.json", "r") as json_file:
+    with open(f"./figs_pen_error_0_step_500_epoch_50_iter_400_dist_3_ver_1/results.json", "r") as json_file:
         data1 = json.load(json_file)
 
     avg_errors = data["error"]
