@@ -53,7 +53,7 @@ CONTROL_SIZE_LIST = [1, 1, 3, 17, 1, 1]
 CONTROL_SCALE_LIST = [1, 1, 1, 1, 1, 2]
 STOPPED_TYPE = [True, False, False, False, True, False]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
-REWARD_SCALE_BETA_LIST = [1, 1, 1, 1, 1, 8.1]
+REWARD_SCALE_BETA_LIST = [1, 1, 10, 1, 1, 8.1]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
@@ -160,6 +160,7 @@ class Worker(object):
                 # RL agent outputs action
                 state_batch_cur.append(state)
                 action = self.agent.take_action(state, training=False)
+                # print("action type:", type(action))
                 action_batch_cur.append(torch.tensor(action).reshape(-1, CONTROL_SIZE).to(self.device))
 
                 state, reward, done, _, _ = self.env.step(action)
@@ -379,8 +380,8 @@ if not PLOT_ONLY:
             avg_reward_errors.append(np.mean(reward_errors))
         plt.close()
 
-    torch.save(model, f"./param/sysmodel_{VERSION}.pkl")
-    agent.save_param(f"./param/rlmodel_new_{VERSION}.pkl")
+    # torch.save(model, f"./param/sysmodel_{VERSION}.pkl")
+    # agent.save_param(f"./param/rlmodel_new_{VERSION}.pkl")
 
     with open(f"./figs_{VERSION}/results.json", "w") as json_file:
         json.dump(

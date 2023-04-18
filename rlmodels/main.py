@@ -125,16 +125,21 @@ else:
     # agent.load_param(name=f"./param/ppo_policy_{ENV[:4]}.pkl")
     print("weight:", WEIGHT)
     if TRAIN_BASE == 1:
-        agent.load_param(name=f"../rlmodels/param/ppo_policy_Hopp_9e-5_ver_1.pkl")
+        # agent.load_param(name=f"../rlmodels/param/ppo_policy_Hopp_9e-5_ver_1.pkl")
+        agent.load_param(
+            name=f"../param/rlmodel_new_hop_error_{WEIGHT}_step_1000_epoch_50_iter_400_dist_0_ver_{VER}.pkl")
     else:
         if DIST == 0:
             if WEIGHT == 0:
                 # agent.load_param(name=f"../param/rlmodel_new_cp_error_{WEIGHT}_epoch_100_iter_200_ver_3.pkl")
-                agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_0_ver_000.pkl")
+                agent.load_param(
+                    name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_0_ver_000.pkl")
             else:
-                agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_0_ver_{VER}.pkl")
+                agent.load_param(
+                    name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_0_ver_{VER}.pkl")
         elif DIST == 1.5:
-            agent.load_param(name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_1_5_ver_{VER}.pkl")
+            agent.load_param(
+                name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_1_5_ver_{VER}.pkl")
         else:
             agent.load_param(
                 name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_{int(DIST)}_ver_{VER}.pkl")

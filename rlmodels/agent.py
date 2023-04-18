@@ -83,7 +83,7 @@ class Agent(object):
                     action = dist.sample()
 
             if np.random.random() < self.args.noise_sigma:
-                return 0 - action.item()
+                return 1 - action.item()
             
             return action.item()
 
