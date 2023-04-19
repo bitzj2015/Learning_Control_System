@@ -30,7 +30,7 @@ ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
 LEARNING_RATE_LIST = [0.001, 0.001, 9.8e-5, 4e-5, 0.001, 5e-5]
 CONTROL_SCALE_LIST = [1, 1, 1, 0.4, 1, 2]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
-REWARD_SCALE_BETA_LIST = [1, 1, 1, 1, 1, 8.1]
+REWARD_SCALE_BETA_LIST = [1, 1, 10, 1, 1, 8.1]
 ENV = ENV_LIST[args.env]
 VERSION = args.version
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
@@ -127,7 +127,10 @@ else:
     if TRAIN_BASE == 1:
         # agent.load_param(name=f"../rlmodels/param/ppo_policy_Hopp_9e-5_ver_1.pkl")
         agent.load_param(
-            name=f"../param/rlmodel_new_hop_error_{WEIGHT}_step_1000_epoch_50_iter_400_dist_0_ver_{VER}.pkl")
+            name=f"../param/rlmodel_new_hop_error_{WEIGHT}_step_1000_epoch_50_iter_400_dist_0_5_ver_{VER}.pkl")
+    elif TRAIN_BASE == 2:
+        agent.load_param(
+            name=f"../param/rlmodel_new_cp_error_{WEIGHT}_step_500_epoch_100_iter_300_dist_0_3_ver_{VER}.pkl")
     else:
         if DIST == 0:
             if WEIGHT == 0:

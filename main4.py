@@ -48,7 +48,7 @@ logger.setLevel(logging.INFO)
 ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
 ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [0.001, 0.001, 0.003, 0.003, 0.001, 0.001]
+LEARNING_RATE_LIST = [5e-4, 0.001, 4e-5, 0.003, 0.001, 4e-5]
 CONTROL_SIZE_LIST = [1, 1, 3, 17, 1, 1]
 CONTROL_SCALE_LIST = [1, 1, 1, 1, 1, 2]
 STOPPED_TYPE = [True, False, False, False, True, False]
@@ -62,6 +62,7 @@ SAMPLE_EARLY_STOPPED_TRACE_ONLY = STOPPED_TYPE[args.env]
 CONTROL_SCALE = CONTROL_SCALE_LIST[args.env]
 REWARD_SCALE_ALPHA = REWARD_SCALE_ALPHA_LIST[args.env]
 REWARD_SCALE_BETA = REWARD_SCALE_BETA_LIST[args.env]
+LEARNING_RATE = LEARNING_RATE_LIST[args.env]
 
 # Define environment
 SEED = args.seed
@@ -104,7 +105,7 @@ ppo_args = PPOArgs(
     reward_scaling_alpha=REWARD_SCALE_ALPHA,
     reward_scaling_beta=REWARD_SCALE_BETA
 )
-rl_optimizer = optim.Adam(policy.parameters(), lr=9.8e-5)
+rl_optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
@@ -391,7 +392,7 @@ if not PLOT_ONLY:
 else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
-    with open(f"./figs_pen_error_0_step_500_epoch_50_iter_400_dist_3_ver_1/results.json", "r") as json_file:
+    with open(f"./figs_cp_error_0_step_500_epoch_100_iter_300_dist_0_3_ver_1/results.json", "r") as json_file:
         data1 = json.load(json_file)
 
     avg_errors = data["error"]
