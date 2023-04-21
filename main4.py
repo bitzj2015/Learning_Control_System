@@ -48,7 +48,7 @@ logger.setLevel(logging.INFO)
 ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
 ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [5e-4, 0.001, 4e-5, 0.003, 0.001, 4e-5]
+LEARNING_RATE_LIST = [1e-4, 0.001, 4e-5, 0.003, 0.001, 4e-5]
 CONTROL_SIZE_LIST = [1, 1, 3, 17, 1, 1]
 CONTROL_SCALE_LIST = [1, 1, 1, 1, 1, 2]
 STOPPED_TYPE = [True, False, False, False, True, False]
@@ -93,7 +93,7 @@ PLOT_ONLY = args.if_plot
 PRETRAIN = False
 NUM_WORKER = os.cpu_count()
 NUM_ITER = 600
-EPOCH = 50
+EPOCH = 100
 BATCH_SIZE = 256
 
 

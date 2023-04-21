@@ -17,6 +17,7 @@ parser.add_argument('--dist-arg', type=str, dest="dist_arg", help='dist_arg', de
 parser.add_argument('--dist', type=float, dest="dist", help='dist', default=0)
 parser.add_argument('--weight', type=str, dest="weight", help='weight', default=0)
 parser.add_argument('--train-base', type=int, dest="train_base", help='train_basecd', default=0)
+parser.add_argument('--test-base', type=int, dest="test_base", help='test_basecd', default=0)
 parser.add_argument('--version', type=str, dest="version", help='version', default="4e-5")
 parser.add_argument('--ver', type=str, dest="ver", help='ver', default="1")
 args = parser.parse_args()
@@ -51,6 +52,7 @@ DIST = args.dist
 DIST_ARG = args.dist_arg
 VER = args.ver
 TRAIN_BASE = args.train_base
+TEST_BASE = args.test_base
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -127,9 +129,11 @@ else:
     # agent.load_param(name=f"./param/ppo_policy_{ENV[:4]}.pkl")
     print("weight:", WEIGHT)
     if TRAIN_BASE == 1:
-        # agent.load_param(name=f"../rlmodels/param/ppo_policy_Hopp_9e-5_ver_3.pkl")
-        agent.load_param(
-            name=f"../param/rlmodel_new_hop_error_{WEIGHT}_step_1000_epoch_50_iter_400_dist_{DIST_ARG}_ver_{VER}.pkl")
+        if TEST_BASE == 1:
+            agent.load_param(name=f"../rlmodels/param/ppo_policy_Hopp_9e-5_ver_3.pkl")
+        else:
+            agent.load_param(
+                name=f"../param/rlmodel_new_hop_error_{WEIGHT}_step_1000_epoch_50_iter_400_dist_{DIST_ARG}_ver_{VER}.pkl")
     elif TRAIN_BASE == 2:
         agent.load_param(
             name=f"../param/rlmodel_new_cp_error_{WEIGHT}_step_500_epoch_100_iter_300_dist_{DIST_ARG}_ver_{VER}.pkl")
