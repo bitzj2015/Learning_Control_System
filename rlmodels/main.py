@@ -15,6 +15,7 @@ parser.add_argument('--seed', type=int, dest="seed", help='random seed', default
 parser.add_argument('--eval', type=int, dest="eval", help='eval', default=0)
 parser.add_argument('--dist-arg', type=str, dest="dist_arg", help='dist_arg', default="0")
 parser.add_argument('--dist', type=float, dest="dist", help='dist', default=0)
+parser.add_argument('--lr', type=int, dest="learning_rate", help='learning_rate', default=1)
 parser.add_argument('--weight', type=str, dest="weight", help='weight', default=0)
 parser.add_argument('--train-base', type=int, dest="train_base", help='train_basecd', default=0)
 parser.add_argument('--test-base', type=int, dest="test_base", help='test_basecd', default=0)
@@ -26,13 +27,13 @@ subprocess.run(["mkdir", "-p", "logs"])
 subprocess.run(["mkdir", "-p", "param"])
 subprocess.run(["mkdir", "-p", "results"])
 
-ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
-ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
+ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1', 'LunarLander-v2']
+ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1, 1]
 ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [0.001, 0.001, 9.8e-5, 4e-5, 0.001, 5e-5]
+LEARNING_RATE_LIST = [1e-4, 0.001, 1e-5, 4e-5, 0.001, 5e-5]
 CONTROL_SCALE_LIST = [1, 1, 1, 0.4, 1, 2]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
-REWARD_SCALE_BETA_LIST = [1, 1, 10, 1, 1, 8.1]
+REWARD_SCALE_BETA_LIST = [1, 1, 1, 1, 1, 8.1]
 ENV = ENV_LIST[args.env]
 VERSION = args.version
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
@@ -51,6 +52,7 @@ WEIGHT = args.weight
 DIST = args.dist
 DIST_ARG = args.dist_arg
 VER = args.ver
+LR_ARG = args.learning_rate
 TRAIN_BASE = args.train_base
 TEST_BASE = args.test_base
 SEED = args.seed
@@ -83,12 +85,12 @@ ppo_args = PPOArgs(agent_path=f"./param/ppo_policy_{ENV[:4]}.pkl", cont_action=I
 # ppo_args = PPOArgs(agent_path=f"/home/asd/PycharmProjects/pythonProject1/Learning_Control_System/param/rlmodel_new_cp_error_5_epoch_100_iter_100.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
 agent = Agent(policy, optimizer, ppo_args, device)
 
-MAX_EPISODES = 60000
+MAX_EPISODES = 50000
 DISCOUNT_FACTOR = 0.99
 N_TRIALS = 25
 REWARD_MAX = -10000
 PRINT_EVERY = 50
-PRINT_MAX = 500
+PRINT_MAX = 1000
 
 EVAL_ONLY = args.eval
 train_rewards = []
@@ -130,14 +132,18 @@ else:
     print("weight:", WEIGHT)
     if TRAIN_BASE == 1:
         if TEST_BASE == 1:
-            agent.load_param(name=f"../rlmodels/param/ppo_policy_Hopp_9e-5_ver_3.pkl")
+            agent.load_param(name=f"../rlmodels/param/ppo_policy_Hopp_9e-5_ver_4.pkl")
         else:
             agent.load_param(
-                name=f"../param/rlmodel_new_hop_error_{WEIGHT}_step_1000_epoch_50_iter_400_dist_{DIST_ARG}_ver_{VER}.pkl")
+                name=f"../param/rlmodel_new_hop_error_{WEIGHT}_step_1000_epoch_100_iter_300_lr_{VERSION}_dist_{DIST_ARG}_ver_{VER}.pkl")
     elif TRAIN_BASE == 2:
-        agent.load_param(
-            name=f"../param/rlmodel_new_cp_error_{WEIGHT}_step_500_epoch_100_iter_300_dist_{DIST_ARG}_ver_{VER}.pkl")
-    else:
+        if LR_ARG == 0:
+            agent.load_param(
+                name=f"../param/rlmodel_new_cp_error_{WEIGHT}_step_500_epoch_100_iter_300_dist_{DIST_ARG}_ver_{VER}.pkl")
+        else:
+            agent.load_param(
+                name=f"../param/rlmodel_new_cp_error_{WEIGHT}_step_500_epoch_100_iter_300_lr_{VERSION}_dist_{DIST_ARG}_ver_{VER}.pkl")
+    elif TRAIN_BASE == 3:
         if DIST == 0:
             if WEIGHT == 0:
                 agent.load_param(
@@ -151,6 +157,9 @@ else:
         else:
             agent.load_param(
                 name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_{DIST_ARG}_ver_{VER}.pkl")
+    else:
+        agent.load_param(
+            name=f"./param/ppo_policy_Cart_4e-5.pkl")
     for episode in range(1, PRINT_MAX + 1):
         test_reward = evaluate(test_env, agent, device)
         test_rewards.append(test_reward)

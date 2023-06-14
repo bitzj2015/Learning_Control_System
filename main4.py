@@ -53,7 +53,7 @@ CONTROL_SIZE_LIST = [1, 1, 3, 17, 1, 1]
 CONTROL_SCALE_LIST = [1, 1, 1, 1, 1, 2]
 STOPPED_TYPE = [True, False, False, False, True, False]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
-REWARD_SCALE_BETA_LIST = [1, 1, 10, 1, 1, 8.1]
+REWARD_SCALE_BETA_LIST = [1, 1, 1, 1, 1, 8.1]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
@@ -214,14 +214,14 @@ if not PLOT_ONLY:
         if IS_CONTINUOUS_ENV == 1:
             RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl"
         else:
-            RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}.pkl"
+            RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}_4e-5.pkl"
         start_ep = 0
 
     agent.load_param(RL_PATH, device)
     Workers = [Worker.remote(ENV, deepcopy(agent), cpu_device, RL_PATH) for _ in range(NUM_WORKER)]
     agent.policy.to(device)
 
-    high_reward = -1000
+    high_reward = -10000
     for iter in range(start_ep, start_ep + NUM_ITER):
         errors = []
         rewards = []
@@ -345,7 +345,7 @@ if not PLOT_ONLY:
                         agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * (error[i] - 0))
                     else:
                         agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * (error[i] - error[i - 1]))
-                    # agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * error[i])
+                        # agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * error[i])
 
                 agent.calculate_return_and_adv()
                 policy_loss, value_loss = agent.update_policy()
@@ -359,7 +359,7 @@ if not PLOT_ONLY:
             if np.mean(rewards[-100:]) > high_reward:
                 agent.save_param(f"./param/rlmodel_new_{VERSION}.pkl")
                 # print("save param")
-                high_reward = np.mean(rewards)
+                high_reward = np.mean(rewards[-100:])
 
             ret = ray.get([worker.update_param.remote(agent.policy.to(cpu_device)) for worker in Workers])
 
@@ -392,7 +392,7 @@ if not PLOT_ONLY:
 else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
-    with open(f"./figs_cp_error_0_step_500_epoch_100_iter_300_dist_0_3_ver_1/results.json", "r") as json_file:
+    with open(f"./figs_hop_error_0_step_1000_epoch_100_iter_300_lr_9_8e-5_dist_0_5_ver_1/results.json", "r") as json_file:
         data1 = json.load(json_file)
 
     avg_errors = data["error"]
