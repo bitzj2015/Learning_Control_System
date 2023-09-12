@@ -21,6 +21,7 @@ parser.add_argument('--train-base', type=int, dest="train_base", help='train_bas
 parser.add_argument('--test-base', type=int, dest="test_base", help='test_basecd', default=0)
 parser.add_argument('--version', type=str, dest="version", help='version', default="4e-5")
 parser.add_argument('--ver', type=str, dest="ver", help='ver', default="1")
+parser.add_argument('--iter', type=str, dest="iter", help='iter', default="600")
 args = parser.parse_args()
 
 subprocess.run(["mkdir", "-p", "logs"])
@@ -28,14 +29,15 @@ subprocess.run(["mkdir", "-p", "param"])
 subprocess.run(["mkdir", "-p", "results"])
 
 ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1', 'LunarLander-v2']
-ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1, 1]
-ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [1e-4, 0.001, 1e-5, 4e-5, 0.001, 5e-5]
-CONTROL_SCALE_LIST = [1, 1, 1, 0.4, 1, 2]
-REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
-REWARD_SCALE_BETA_LIST = [1, 1, 1, 1, 1, 8.1]
+ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1, 0]
+ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200, 1000]
+LEARNING_RATE_LIST = [1e-4, 0.001, 1e-5, 4e-5, 0.001, 5e-5, 5e-5]
+CONTROL_SCALE_LIST = [1, 1, 1, 0.4, 1, 2, 4]
+REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1, 0]
+REWARD_SCALE_BETA_LIST = [1, 1, 1, 1, 1, 8.1, 1]
 ENV = ENV_LIST[args.env]
 VERSION = args.version
+ITER = args.iter
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
 CONTROL_SCALE = CONTROL_SCALE_LIST[args.env]
@@ -58,7 +60,7 @@ TEST_BASE = args.test_base
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 INPUT_DIM = train_env.observation_space.shape[0]
 HIDDEN_DIM = 128
@@ -135,7 +137,7 @@ else:
             agent.load_param(name=f"../rlmodels/param/ppo_policy_Hopp_9e-5_ver_4.pkl")
         else:
             agent.load_param(
-                name=f"../param/rlmodel_new_hop_error_{WEIGHT}_step_1000_epoch_100_iter_300_lr_{VERSION}_dist_{DIST_ARG}_ver_{VER}.pkl")
+                name=f"../param/rlmodel_new_hop_error_{WEIGHT}_step_1000_epoch_100_iter_{ITER}_lr_{VERSION}_dist_{DIST_ARG}_ver_{VER}.pkl")
     elif TRAIN_BASE == 2:
         if LR_ARG == 0:
             agent.load_param(

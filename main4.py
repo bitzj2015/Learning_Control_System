@@ -93,14 +93,13 @@ PLOT_ONLY = args.if_plot
 PRETRAIN = False
 NUM_WORKER = os.cpu_count()
 NUM_ITER = 600
-EPOCH = 100
-BATCH_SIZE = 256
-
+EPOCH = 50
+BATCH_SIZE = 2
 
 ppo_args = PPOArgs(
-    agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl",              
+    agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl",
     cont_action=IS_CONTINUOUS_ENV,
-    rollout_len=ROLLOUT_LEN, 
+    rollout_len=ROLLOUT_LEN,
     noise_sigma=DIST,
     reward_scaling_alpha=REWARD_SCALE_ALPHA,
     reward_scaling_beta=REWARD_SCALE_BETA
@@ -232,21 +231,32 @@ if not PLOT_ONLY:
             if ERR_WEIGHT == 0:
                 continue
             # Define system model
-            model = StableDynamicsModel((INPUT_DIM,),  # input shape
-                                        control_size=CONTROL_SIZE,  # action size
-                                        device=device,
-                                        alpha=0.9,  # lyapunov constant
-                                        layer_sizes=[64, 64],  # NN layer sizes for lyapunov
-                                        lr=3e-4,  # learning rate for dynamics model
-                                        lyapunov_lr=3e-4,  # learning rate for lyapunov function
-                                        lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
-            model = model.to(device)
-            optimizer = optim.Adam(model.parameters(), lr=1e-4)
-
-            # t2 = time.time()
+            if iter <= 300:
+                model = StableDynamicsModel((INPUT_DIM,),  # input shape
+                                            control_size=CONTROL_SIZE,  # action size
+                                            device=device,
+                                            alpha=0.9,  # lyapunov constant
+                                            layer_sizes=[64, 64],  # NN layer sizes for lyapunov
+                                            lr=3e-4,  # learning rate for dynamics model
+                                            lyapunov_lr=3e-4,  # learning rate for lyapunov function
+                                            lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
+                model = model.to(device)
+                optimizer = optim.Adam(model.parameters(), lr=1e-4)
+            # model = StableDynamicsModel((INPUT_DIM,),  # input shape
+            #                             control_size=CONTROL_SIZE,  # action size
+            #                             device=device,
+            #                             alpha=0.9,  # lyapunov constant
+            #                             layer_sizes=[64, 64],  # NN layer sizes for lyapunov
+            #                             lr=3e-4,  # learning rate for dynamics model
+            #                             lyapunov_lr=3e-4,  # learning rate for lyapunov function
+            #                             lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
+            # model = model.to(device)
+            # optimizer = optim.Adam(model.parameters(), lr=1e-4)
+            t2 = time.time()
             ret = ray.get(
                 [worker.rollout.remote(max_step=ROLLOUT_LEN, epoch=EPOCH, rand=int(iter == 0)) for worker in Workers])
-            # print("rollout:", time.time() - t2)
+            print("rollout:", time.time() - t2)
+
             state_batch = []
             action_batch = []
             next_state_batch = []
@@ -277,6 +287,7 @@ if not PLOT_ONLY:
                 # action_batch = torch.cat(action_batch).to(device)
                 # next_state_batch = torch.cat(next_state_batch).to(device)
 
+                t3 = time.time()
                 for i in range(state_batch.size(0) // BATCH_SIZE):
                     # Predicted next state
                     prediction = model(state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE],
@@ -285,11 +296,14 @@ if not PLOT_ONLY:
                     error = ((prediction - next_state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE]) ** 2).sum(-1)
 
                     error = error.mean(0)
+
                     optimizer.zero_grad()
                     error.backward()
                     optimizer.step()
 
+
                 errors.append(error.item())
+                print("optimize:", time.time() - t3)
                 if ep % 100 == 0:
                     logger.info(f"Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
                 torch.save(model, f"./param/sysmodel_{VERSION}.pkl")
@@ -392,8 +406,16 @@ if not PLOT_ONLY:
 else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
-    with open(f"./figs_hop_error_0_step_1000_epoch_100_iter_300_lr_9_8e-5_dist_0_5_ver_1/results.json", "r") as json_file:
+    with open(f"./figs_hop_error_0_step_1000_epoch_100_iter_300_lr_4e-5_dist_1_ver_1/results.json", "r") as json_file:
         data1 = json.load(json_file)
+
+    # cut ind
+    cut_ind = 300
+
+    # avg_errors = data["error"][:cut_ind]
+    # avg_rewards = data["reward"][:cut_ind]
+    # avg_reward_errors = data["reward_errors"][:cut_ind]
+    # avg_rewards0 = data1["reward"][:cut_ind]
 
     avg_errors = data["error"]
     avg_rewards = data["reward"]
@@ -404,7 +426,7 @@ else:
     plt.xlabel("Iteration")
     plt.plot(avg_errors)
     plt.ylabel("Error of deep dynamic model")
-    plt.ylim([0, 10])
+    # plt.ylim([0, 10])
     plt.savefig(f"./figs_{VERSION}/avg_errors.jpg")
 
     plt.figure()
@@ -412,7 +434,7 @@ else:
     plt.plot(avg_rewards)
     plt.plot(avg_rewards0)
     plt.ylabel("Reward of RL controller (Max: 100)")
-    plt.savefig(f"./figs_{VERSION}/avg_rewards.jpg")
+    plt.savefig(f"./fixs gs_{VERSION}/avg_rewards.jpg")
 
     plt.figure()
     plt.xlabel("Iteration")
