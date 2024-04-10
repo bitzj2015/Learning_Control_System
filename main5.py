@@ -15,7 +15,7 @@ import argparse
 import time
 
 parser = argparse.ArgumentParser(description='train rl model.')
-parser.add_argument('--env', type=int, dest="env", help='start point', default=0)
+parser.add_argument('--env', type=int, dest="env", help='start point', default=5)
 parser.add_argument('--errweight', type=float, dest="err_weight", help='err_weight', default=5)
 parser.add_argument('--dist', type=float, dest="dist", help='dist', default=0)
 parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
@@ -45,15 +45,15 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Environment setups
-ENV_LIST = ['stable_gym:CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
+ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
 ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
-ROLLOUT_LEN_LIST = [250, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [1e-4, 0.001, 4e-5, 0.003, 0.001, 4e-5]
+ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
+LEARNING_RATE_LIST = [1e-4, 0.001, 0.003, 0.003, 0.001, 0.001]
 CONTROL_SIZE_LIST = [1, 1, 3, 17, 1, 1]
 CONTROL_SCALE_LIST = [1, 1, 1, 1, 1, 2]
 STOPPED_TYPE = [True, False, False, False, True, False]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
-REWARD_SCALE_BETA_LIST = [1, 1, 1, 1, 1, 8.1]
+REWARD_SCALE_BETA_LIST = [1, 1, 10, 1, 1, 8.1]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
@@ -68,7 +68,7 @@ LEARNING_RATE = LEARNING_RATE_LIST[args.env]
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 cpu_device = torch.device("cpu")
 env = gym.make(ENV)
 
@@ -92,14 +92,15 @@ else:
 PLOT_ONLY = args.if_plot
 PRETRAIN = False
 NUM_WORKER = os.cpu_count()
-NUM_ITER = 600
-EPOCH = 50
-BATCH_SIZE = 2
+NUM_ITER = 200
+EPOCH = 500
+BATCH_SIZE = 256
+
 
 ppo_args = PPOArgs(
-    agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl",
+    agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl",              
     cont_action=IS_CONTINUOUS_ENV,
-    rollout_len=ROLLOUT_LEN,
+    rollout_len=ROLLOUT_LEN, 
     noise_sigma=DIST,
     reward_scaling_alpha=REWARD_SCALE_ALPHA,
     reward_scaling_beta=REWARD_SCALE_BETA
@@ -108,7 +109,7 @@ rl_optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
-model = StableDynamicsModel((INPUT_DIM,),  # input shape
+model = StableDynamicsModel((INPUT_DIM - 1,),  # input shape
                             control_size=CONTROL_SIZE,  # action size
                             device=device,
                             alpha=0.9,  # lyapunov constant
@@ -213,14 +214,14 @@ if not PLOT_ONLY:
         if IS_CONTINUOUS_ENV == 1:
             RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl"
         else:
-            RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}_4e-5.pkl"
+            RL_PATH = f"./rlmodels/param/ppo_policy_{ENV[:4]}_1e-3.pkl"
         start_ep = 0
 
     agent.load_param(RL_PATH, device)
     Workers = [Worker.remote(ENV, deepcopy(agent), cpu_device, RL_PATH) for _ in range(NUM_WORKER)]
     agent.policy.to(device)
 
-    high_reward = -10000
+    high_reward = -1000
     for iter in range(start_ep, start_ep + NUM_ITER):
         errors = []
         rewards = []
@@ -231,32 +232,21 @@ if not PLOT_ONLY:
             if ERR_WEIGHT == 0:
                 continue
             # Define system model
-            if iter <= 300:
-                model = StableDynamicsModel((INPUT_DIM,),  # input shape
-                                            control_size=CONTROL_SIZE,  # action size
-                                            device=device,
-                                            alpha=0.9,  # lyapunov constant
-                                            layer_sizes=[64, 64],  # NN layer sizes for lyapunov
-                                            lr=3e-4,  # learning rate for dynamics model
-                                            lyapunov_lr=3e-4,  # learning rate for lyapunov function
-                                            lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
-                model = model.to(device)
-                optimizer = optim.Adam(model.parameters(), lr=1e-4)
-            # model = StableDynamicsModel((INPUT_DIM,),  # input shape
-            #                             control_size=CONTROL_SIZE,  # action size
-            #                             device=device,
-            #                             alpha=0.9,  # lyapunov constant
-            #                             layer_sizes=[64, 64],  # NN layer sizes for lyapunov
-            #                             lr=3e-4,  # learning rate for dynamics model
-            #                             lyapunov_lr=3e-4,  # learning rate for lyapunov function
-            #                             lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
-            # model = model.to(device)
-            # optimizer = optim.Adam(model.parameters(), lr=1e-4)
-            t2 = time.time()
+            model = StableDynamicsModel((INPUT_DIM - 1,),  # input shape
+                                        control_size=CONTROL_SIZE,  # action size
+                                        device=device,
+                                        alpha=0.9,  # lyapunov constant
+                                        layer_sizes=[64, 64],  # NN layer sizes for lyapunov
+                                        lr=3e-4,  # learning rate for dynamics model
+                                        lyapunov_lr=3e-4,  # learning rate for lyapunov function
+                                        lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
+            model = model.to(device)
+            optimizer = optim.Adam(model.parameters(), lr=1e-4)
+
+            # t2 = time.time()
             ret = ray.get(
                 [worker.rollout.remote(max_step=ROLLOUT_LEN, epoch=EPOCH, rand=int(iter == 0)) for worker in Workers])
-            print("rollout:", time.time() - t2)
-
+            # print("rollout:", time.time() - t2)
             state_batch = []
             action_batch = []
             next_state_batch = []
@@ -287,23 +277,19 @@ if not PLOT_ONLY:
                 # action_batch = torch.cat(action_batch).to(device)
                 # next_state_batch = torch.cat(next_state_batch).to(device)
 
-                t3 = time.time()
                 for i in range(state_batch.size(0) // BATCH_SIZE):
                     # Predicted next state
-                    prediction = model(state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE],
+                    prediction = model(state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE, 1:],
                                        action_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE])
 
-                    error = ((prediction - next_state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE]) ** 2).sum(-1)
+                    error = ((prediction - next_state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE, 1:]) ** 2).sum(-1)
 
                     error = error.mean(0)
-
                     optimizer.zero_grad()
                     error.backward()
                     optimizer.step()
 
-
                 errors.append(error.item())
-                print("optimize:", time.time() - t3)
                 if ep % 100 == 0:
                     logger.info(f"Iter: {iter // 2}, epoch: {ep}, error of dynamic model: {error.item()}")
                 torch.save(model, f"./param/sysmodel_{VERSION}.pkl")
@@ -343,9 +329,9 @@ if not PLOT_ONLY:
                     if cnt == ROLLOUT_LEN:
                         break
 
-                state_batch = torch.cat(state_batch)
+                state_batch = torch.cat(state_batch)[:,1:]
                 action_batch = torch.cat(action_batch)
-                next_state_batch = torch.cat(next_state_batch)
+                next_state_batch = torch.cat(next_state_batch)[:,1:]
 
                 # Predicted next state
                 prediction = model(state_batch, action_batch)
@@ -373,7 +359,7 @@ if not PLOT_ONLY:
             if np.mean(rewards[-100:]) > high_reward:
                 agent.save_param(f"./param/rlmodel_new_{VERSION}.pkl")
                 # print("save param")
-                high_reward = np.mean(rewards[-100:])
+                high_reward = np.mean(rewards)
 
             ret = ray.get([worker.update_param.remote(agent.policy.to(cpu_device)) for worker in Workers])
 
@@ -406,16 +392,8 @@ if not PLOT_ONLY:
 else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
-    with open(f"./figs_hop_error_0_step_1000_epoch_100_iter_300_lr_4e-5_dist_1_ver_1/results.json", "r") as json_file:
+    with open(f"./figs_cp_error_0_step_500_epoch_100_iter_300_lr_1e-4_dist_0_1_ver_1/results.json", "r") as json_file:
         data1 = json.load(json_file)
-
-    # cut ind
-    cut_ind = 300
-
-    # avg_errors = data["error"][:cut_ind]
-    # avg_rewards = data["reward"][:cut_ind]
-    # avg_reward_errors = data["reward_errors"][:cut_ind]
-    # avg_rewards0 = data1["reward"][:cut_ind]
 
     avg_errors = data["error"]
     avg_rewards = data["reward"]
@@ -426,7 +404,7 @@ else:
     plt.xlabel("Iteration")
     plt.plot(avg_errors)
     plt.ylabel("Error of deep dynamic model")
-    # plt.ylim([0, 10])
+    plt.ylim([0, 10])
     plt.savefig(f"./figs_{VERSION}/avg_errors.jpg")
 
     plt.figure()
@@ -434,7 +412,7 @@ else:
     plt.plot(avg_rewards)
     plt.plot(avg_rewards0)
     plt.ylabel("Reward of RL controller (Max: 100)")
-    plt.savefig(f"./fixs gs_{VERSION}/avg_rewards.jpg")
+    plt.savefig(f"./figs_{VERSION}/avg_rewards.jpg")
 
     plt.figure()
     plt.xlabel("Iteration")

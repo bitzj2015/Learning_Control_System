@@ -36,20 +36,21 @@ class StableDynamicsModel(nn.Module):
     def forward(self, x, u=None):
         xu = x.squeeze()
         if self._act_size != 0:
-            xu = torch.cat([x, u], dim=-1).squeeze()
+            xu = torch.cat([x, u], dim=-1).squeeze() # [bs, x_dim+u_dim]
             xu_mask = torch.cat([torch.ones(size=x.size()), torch.zeros(size=u.size())], dim=-1).squeeze().to(self.device)
         if not xu.requires_grad:
             xu.requires_grad = True
+        # import pdb; pdb.set_trace()
         f = self._l1(xu.squeeze()).relu()
         f = self._l2(f).relu()
         f = self._l3(f)
         if len(xu.shape) == 1:
             xu = xu.unsqueeze(0)
-        lyapunov = self._lyapunov_function(xu * xu_mask).squeeze()
+        lyapunov = self._lyapunov_function(xu * xu_mask).squeeze()  #zeros?ones?
         xu.retain_grad()
         lyapunov.backward(gradient=torch.ones_like(lyapunov), retain_graph=True)
-        grad_v = xu.grad.clone()
-        gv = grad_v.view(-1, 1, xu.shape[-1])[:,:,:self._obs_size]
+        grad_v = xu.grad.clone() # [bs, x_dim+u_dim]
+        gv = grad_v.view(-1, 1, xu.shape[-1])[:,:,:self._obs_size] # [bs, 1, x_dim]
 
         fv = f.view(-1, self._obs_size, 1)
         dot = (gv @ fv).squeeze()
