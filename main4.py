@@ -15,7 +15,7 @@ import argparse
 import time
 
 parser = argparse.ArgumentParser(description='train rl model.')
-parser.add_argument('--env', type=int, dest="env", help='start point', default=5)
+parser.add_argument('--env', type=int, dest="env", help='start point', default=0)
 parser.add_argument('--errweight', type=float, dest="err_weight", help='err_weight', default=5)
 parser.add_argument('--dist', type=float, dest="dist", help='dist', default=0)
 parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
@@ -45,9 +45,9 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Environment setups
-ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
+ENV_LIST = ['stable_gym:CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
 ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
-ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
+ROLLOUT_LEN_LIST = [250, 10000, 1000, 1000, 500, 200]
 LEARNING_RATE_LIST = [1e-4, 0.001, 4e-5, 0.003, 0.001, 4e-5]
 CONTROL_SIZE_LIST = [1, 1, 3, 17, 1, 1]
 CONTROL_SCALE_LIST = [1, 1, 1, 1, 1, 2]

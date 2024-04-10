@@ -2,7 +2,11 @@ import torch
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
-import gym
+import gymnasium as gym
+from stable_gym.envs.classic_control.cartpole_cost.cartpole_cost import CartPoleCost
+
+import stable_learning_control
+from stable_learning_control.algos.pytorch.lac.lac import LAC, lac
 from models import *
 from utils import *
 from agent import *
@@ -10,7 +14,7 @@ import subprocess
 import argparse
 
 parser = argparse.ArgumentParser(description='train rl model.')
-parser.add_argument('--env', type=int, dest="env", help='start point', default=5)
+parser.add_argument('--env', type=int, dest="env", help='start point', default=0)
 parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
 parser.add_argument('--eval', type=int, dest="eval", help='eval', default=0)
 parser.add_argument('--dist-arg', type=str, dest="dist_arg", help='dist_arg', default="0")
@@ -26,10 +30,11 @@ subprocess.run(["mkdir", "-p", "logs"])
 subprocess.run(["mkdir", "-p", "param"])
 subprocess.run(["mkdir", "-p", "results"])
 
-ENV_LIST = ['CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
-ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
-ROLLOUT_LEN_LIST = [500, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [0.001, 0.001, 9.8e-5, 4e-5, 0.001, 5e-5]
+ENV_LIST = ['stable_gym:CartPoleCost-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1',
+            'Pendulum-v1']
+ENV_TYPE_LIST = [1, 1, 1, 1, 0, 1]
+ROLLOUT_LEN_LIST = [250, 10000, 1000, 1000, 500, 200]
+LEARNING_RATE_LIST = [0.01, 0.001, 9.8e-5, 4e-5, 0.001, 5e-5]
 CONTROL_SCALE_LIST = [1, 1, 1, 0.4, 1, 2]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
 REWARD_SCALE_BETA_LIST = [1, 1, 10, 1, 1, 8.1]
@@ -69,6 +74,7 @@ if not IS_CONTINUOUS_ENV:
     policy.apply(init_weights)
 
 else:
+    # print(train_env.action_space)
     OUTPUT_DIM = train_env.action_space.shape[0]
     policy = ActorCriticCont(INPUT_DIM, HIDDEN_DIM, OUTPUT_DIM, CONTROL_SCALE).to(device)
     policy.apply(init_weights)
@@ -80,10 +86,24 @@ ppo_args = PPOArgs(agent_path=f"./param/ppo_policy_{ENV[:4]}.pkl", cont_action=I
                    rollout_len=ROLLOUT_LEN, noise_sigma=DIST,
                    reward_scaling_alpha=REWARD_SCALE_ALPHA,
                    reward_scaling_beta=REWARD_SCALE_BETA)
+
 # ppo_args = PPOArgs(agent_path=f"/home/asd/PycharmProjects/pythonProject1/Learning_Control_System/param/rlmodel_new_cp_error_5_epoch_100_iter_100.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
 agent = Agent(policy, optimizer, ppo_args, device)
 
-MAX_EPISODES = 60000
+# agent = lac(env_fn=train_env, actor_critic=None, opt_type='minimize', max_ep_len=None,
+#             epochs=100, steps_per_epoch=2048, start_steps=0, update_every=100,
+#             update_after=1000, steps_per_update=100, num_test_episodes=10,
+#             alpha=0.99, alpha3=0.2, labda=0.99, gamma=0.99, polyak=0.995,
+#             target_entropy=None, adaptive_temperature=True, lr_a=0.0001,
+#             lr_c=0.0003, lr_alpha=0.0001, lr_labda=0.0003, lr_a_final=1e-10,
+#             lr_c_final=1e-10, lr_alpha_final=1e-10, lr_labda_final=1e-10,
+#             lr_decay_type='linear', lr_a_decay_type=None,
+#             lr_c_decay_type=None, lr_alpha_decay_type=None,
+#             lr_labda_decay_type=None, lr_decay_ref='epoch', batch_size=256,
+#             replay_size=1000000, horizon_length=0, seed=None, device='cpu',
+#             logger_kwargs={}, save_freq=1, start_policy=None, export=False)
+
+MAX_EPISODES = 10000
 DISCOUNT_FACTOR = 0.99
 N_TRIALS = 25
 REWARD_MAX = -10000

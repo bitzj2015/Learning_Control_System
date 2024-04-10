@@ -60,6 +60,8 @@ class Agent(object):
 
 
     def take_action(self, state, training=True):
+        # import pdb
+        # pdb.set_trace()
         if not self.args.cont_action:
             if training:
                 self.states.append(state)
@@ -95,10 +97,15 @@ class Agent(object):
                 dist = distributions.Normal(action_mu, action_std)
                 action = dist.sample()
 
+
                 log_prob_action = dist.log_prob(action)
                 self.actions.append(action)
                 self.log_prob_actions.append(log_prob_action.sum(-1).reshape(-1,1))
                 self.values.append(value_pred)
+
+                action = action.cpu()
+                action_np = action.numpy()
+                # print(action_np)
 
             else:
                 self.policy.eval()
@@ -107,12 +114,15 @@ class Agent(object):
                     dist = distributions.Normal(action_mu, action_std)
                     action = dist.sample()
                     action = torch.clamp(action, min=-2, max=2)
+                    action = action.cpu()
+                    action_np = action.numpy()
 
-            noise = torch.normal(0, self.args.noise_sigma, size=action.size()).to(self.device)
-            action = torch.clamp(action + noise, min=-2, max=2)
+            # noise = torch.normal(0, self.args.noise_sigma, size=action.size()).to(self.device)
+            # action = torch.clamp(action + noise, min=-2, max=2)
             
             
-            return action.tolist()[0]
+            # return action.tolist()[0]
+            return action_np
 
 
     def update_reward(self, reward):

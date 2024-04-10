@@ -14,6 +14,7 @@ def train(env, agent, device):
     episode_reward = 0
 
     state = env.reset()[0]
+    # print(state)
 
     num_steps = 0
     while not done:
@@ -22,10 +23,15 @@ def train(env, agent, device):
 
         #append state here, not after we get the next state from env.step()
         action = agent.take_action(state)
+        # print(action)
+
+        # print(env.step(action))
         state, reward, done, _, _ = env.step(action)
-        agent.update_reward(reward)
+        # print(1-reward/100)
+
+        agent.update_reward(1-reward/100)
         
-        episode_reward += reward
+        episode_reward += 1-reward/100
         num_steps += 1
 
         if num_steps >= agent.args.rollout_len:
@@ -48,10 +54,10 @@ def evaluate(env, agent, device):
     while not done:
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
         action = agent.take_action(state, training=False)
-        state, reward, done, _, _ = env.step(action)
+        state, reward, done, _,_ = env.step(action)
         episode_reward += reward
         num_steps += 1
         if num_steps >= agent.args.rollout_len:
             break
 
-    return episode_reward
+    return reward
