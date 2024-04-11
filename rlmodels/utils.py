@@ -7,31 +7,26 @@ def init_weights(m):
         m.bias.data.fill_(0)
 
 
-def train(env, agent, device):
+def train(env, agent, device, step_flag=True):
 
     # accu_steps = 0
     done = False
     episode_reward = 0
-
     state = env.reset()[0]
-    # print(state)
 
     num_steps = 0
     while not done:
 
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
-
         #append state here, not after we get the next state from env.step()
         action = agent.take_action(state)
-        # print(action)
+        # print(f'|The action is: {action}|')
 
-        # print(env.step(action))
         state, reward, done, _, _ = env.step(action)
-        # print(1-reward/100)
+        # print(f'|The train cost of the {num_steps} step is: {reward}|')
 
-        agent.update_reward(1-reward/100)
-        
-        episode_reward += 1-reward/100
+        agent.update_reward(20-reward)
+        episode_reward += 20-reward
         num_steps += 1
 
         if num_steps >= agent.args.rollout_len:
@@ -40,24 +35,30 @@ def train(env, agent, device):
     # accu_steps += num_steps
     agent.calculate_return_and_adv()        
     policy_loss, value_loss = agent.update_policy()
+    if not step_flag:
+        print(f'|The policy loss is: {policy_loss}|')
+        print(f'|The value loss is: {value_loss}|')
 
     return policy_loss, value_loss, episode_reward
 
 
-def evaluate(env, agent, device):
+def evaluate(env, agent, device, step_flag=True):
     done = False
     episode_reward = 0
 
     state = env.reset()[0]
-
     num_steps = 0
     while not done:
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
         action = agent.take_action(state, training=False)
-        state, reward, done, _,_ = env.step(action)
+        state, reward, done, _, _ = env.step(action)
+        # print(f'|The test cost of the {num_steps} step is: {reward}|')
         episode_reward += reward
         num_steps += 1
         if num_steps >= agent.args.rollout_len:
             break
 
-    return reward
+    if not step_flag:
+        print(f'|The test step is: {num_steps}|')
+
+    return episode_reward

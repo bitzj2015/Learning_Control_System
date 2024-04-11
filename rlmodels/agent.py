@@ -96,33 +96,28 @@ class Agent(object):
                 action_mu, action_std, value_pred = self.policy(state)
                 dist = distributions.Normal(action_mu, action_std)
                 action = dist.sample()
-
+                action = torch.clamp(action, min=-20, max=20)
 
                 log_prob_action = dist.log_prob(action)
                 self.actions.append(action)
                 self.log_prob_actions.append(log_prob_action.sum(-1).reshape(-1,1))
                 self.values.append(value_pred)
-
-                action = action.cpu()
-                action_np = action.numpy()
-                # print(action_np)
-
+                action = action[0].cpu().numpy().astype(np.float64)
             else:
                 self.policy.eval()
                 with torch.no_grad():
                     action_mu, action_std, _ = self.policy(state)
                     dist = distributions.Normal(action_mu, action_std)
                     action = dist.sample()
-                    action = torch.clamp(action, min=-2, max=2)
-                    action = action.cpu()
-                    action_np = action.numpy()
+                    action = torch.clamp(action, min=-20, max=20)
+                    action = action[0].cpu().numpy().astype(np.float64)
 
             # noise = torch.normal(0, self.args.noise_sigma, size=action.size()).to(self.device)
             # action = torch.clamp(action + noise, min=-2, max=2)
             
             
             # return action.tolist()[0]
-            return action_np
+            return action
 
 
     def update_reward(self, reward):

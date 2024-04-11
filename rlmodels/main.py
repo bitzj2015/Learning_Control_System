@@ -34,8 +34,8 @@ ENV_LIST = ['stable_gym:CartPoleCost-v1', 'MountainCarContinuous-v0', 'Hopper-v4
             'Pendulum-v1']
 ENV_TYPE_LIST = [1, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [250, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [0.01, 0.001, 9.8e-5, 4e-5, 0.001, 5e-5]
-CONTROL_SCALE_LIST = [1, 1, 1, 0.4, 1, 2]
+LEARNING_RATE_LIST = [1e-3, 0.001, 9.8e-5, 4e-5, 0.001, 5e-5]
+CONTROL_SCALE_LIST = [20, 1, 1, 0.4, 1, 2]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
 REWARD_SCALE_BETA_LIST = [1, 1, 10, 1, 1, 8.1]
 ENV = ENV_LIST[args.env]
@@ -64,7 +64,7 @@ torch.manual_seed(SEED)
 device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 INPUT_DIM = train_env.observation_space.shape[0]
-HIDDEN_DIM = 128
+HIDDEN_DIM = 256
 
 if not IS_CONTINUOUS_ENV:
     OUTPUT_DIM = train_env.action_space.n
@@ -103,7 +103,7 @@ agent = Agent(policy, optimizer, ppo_args, device)
 #             replay_size=1000000, horizon_length=0, seed=None, device='cpu',
 #             logger_kwargs={}, save_freq=1, start_policy=None, export=False)
 
-MAX_EPISODES = 10000
+MAX_EPISODES = 100000
 DISCOUNT_FACTOR = 0.99
 N_TRIALS = 25
 REWARD_MAX = -10000
@@ -117,9 +117,13 @@ test_rewards = []
 if not EVAL_ONLY:
     for episode in range(1, MAX_EPISODES + 1):
 
-        policy_loss, value_loss, train_reward = train(train_env, agent, device)
+        flag = True
+        if episode % PRINT_EVERY == 0:
+            flag = False
 
-        test_reward = evaluate(test_env, agent, device)
+        policy_loss, value_loss, train_reward = train(train_env, agent, device, step_flag=flag)
+
+        test_reward = evaluate(test_env, agent, device, step_flag=flag)
 
         train_rewards.append(train_reward)
         test_rewards.append(test_reward)
