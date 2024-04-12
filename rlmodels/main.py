@@ -34,7 +34,7 @@ ENV_LIST = ['stable_gym:CartPoleCost-v1', 'MountainCarContinuous-v0', 'Hopper-v4
             'Pendulum-v1']
 ENV_TYPE_LIST = [1, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [250, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [1e-3, 0.001, 9.8e-5, 4e-5, 0.001, 5e-5]
+LEARNING_RATE_LIST = [0.001, 0.001, 9.8e-5, 4e-5, 0.001, 5e-5]
 CONTROL_SCALE_LIST = [20, 1, 1, 0.4, 1, 2]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
 REWARD_SCALE_BETA_LIST = [1, 1, 10, 1, 1, 8.1]
@@ -47,10 +47,7 @@ REWARD_SCALE_ALPHA = REWARD_SCALE_ALPHA_LIST[args.env]
 REWARD_SCALE_BETA = REWARD_SCALE_BETA_LIST[args.env]
 train_env = gym.make(ENV)
 test_env = gym.make(ENV)
-# print(torch.cuda.current_device())
-# print(torch.cuda.device_count())
-# print(torch.cuda.get_device_name(0))
-# print(torch.cuda.is_available())
+
 
 WEIGHT = args.weight
 DIST = args.dist
@@ -104,8 +101,8 @@ agent = Agent(policy, optimizer, ppo_args, device)
 #             logger_kwargs={}, save_freq=1, start_policy=None, export=False)
 
 MAX_EPISODES = 100000
-DISCOUNT_FACTOR = 0.99
-N_TRIALS = 25
+DISCOUNT_FACTOR = 0.9
+N_TRIALS = 50
 REWARD_MAX = -10000
 PRINT_EVERY = 50
 PRINT_MAX = 500
@@ -113,6 +110,8 @@ PRINT_MAX = 500
 EVAL_ONLY = args.eval
 train_rewards = []
 test_rewards = []
+train_steps = []
+test_steps = []
 
 if not EVAL_ONLY:
     for episode in range(1, MAX_EPISODES + 1):
@@ -121,19 +120,25 @@ if not EVAL_ONLY:
         if episode % PRINT_EVERY == 0:
             flag = False
 
-        policy_loss, value_loss, train_reward = train(train_env, agent, device, step_flag=flag)
+        policy_loss, value_loss, train_reward, train_step = train(train_env, agent, device, step_flag=flag)
 
-        test_reward = evaluate(test_env, agent, device, step_flag=flag)
+        test_reward , test_step = evaluate(test_env, agent, device, step_flag=flag)
 
         train_rewards.append(train_reward)
         test_rewards.append(test_reward)
+        train_steps.append(train_step)
+        test_steps.append(test_step)
 
         mean_train_rewards = np.mean(train_rewards[-N_TRIALS:])
         mean_test_rewards = np.mean(test_rewards[-N_TRIALS:])
+        mean_train_steps = np.mean(train_steps[-N_TRIALS:])
+        mean_test_steps = np.mean(test_steps[-N_TRIALS:])
 
         if episode % PRINT_EVERY == 0:
             print(
                 f'| Episode: {episode:3} | Mean Train Rewards: {mean_train_rewards:5.1f} | Mean Test Rewards: {mean_test_rewards:5.1f} |')
+            print(
+                f'| Episode: {episode:3} | Mean Train Steps: {mean_train_steps:5.1f} | Mean Test steps: {mean_test_steps:5.1f} |')
 
         if mean_test_rewards >= REWARD_MAX:
             REWARD_MAX = mean_test_rewards

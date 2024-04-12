@@ -25,8 +25,8 @@ def train(env, agent, device, step_flag=True):
         state, reward, done, _, _ = env.step(action)
         # print(f'|The train cost of the {num_steps} step is: {reward}|')
 
-        agent.update_reward(20-reward)
-        episode_reward += 20-reward
+        agent.update_reward((20-reward)/20)
+        episode_reward += (20-reward)/20
         num_steps += 1
 
         if num_steps >= agent.args.rollout_len:
@@ -39,13 +39,12 @@ def train(env, agent, device, step_flag=True):
         print(f'|The policy loss is: {policy_loss}|')
         print(f'|The value loss is: {value_loss}|')
 
-    return policy_loss, value_loss, episode_reward
+    return policy_loss, value_loss, episode_reward, num_steps
 
 
 def evaluate(env, agent, device, step_flag=True):
     done = False
     episode_reward = 0
-
     state = env.reset()[0]
     num_steps = 0
     while not done:
@@ -57,8 +56,8 @@ def evaluate(env, agent, device, step_flag=True):
         num_steps += 1
         if num_steps >= agent.args.rollout_len:
             break
+    #
+    # if not step_flag:
+    #     print(f'|The test step is: {num_steps}|')
 
-    if not step_flag:
-        print(f'|The test step is: {num_steps}|')
-
-    return episode_reward
+    return episode_reward, num_steps
