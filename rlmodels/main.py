@@ -15,13 +15,13 @@ import argparse
 
 parser = argparse.ArgumentParser(description='train rl model.')
 parser.add_argument('--env', type=int, dest="env", help='start point', default=0)
-parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=123)
+parser.add_argument('--seed', type=int, dest="seed", help='random seed', default=0)
 parser.add_argument('--eval', type=int, dest="eval", help='eval', default=0)
 parser.add_argument('--dist-arg', type=str, dest="dist_arg", help='dist_arg', default="0")
 parser.add_argument('--dist', type=float, dest="dist", help='dist', default=0)
 parser.add_argument('--weight', type=str, dest="weight", help='weight', default=0)
-parser.add_argument('--train-base', type=int, dest="train_base", help='train_basecd', default=0)
-parser.add_argument('--test-base', type=int, dest="test_base", help='test_basecd', default=0)
+parser.add_argument('--train-base', type=int, dest="train_base", help='train_basecd', default=1)
+parser.add_argument('--test-base', type=int, dest="test_base", help='test_basecd', default=1)
 parser.add_argument('--version', type=str, dest="version", help='version', default="4e-5")
 parser.add_argument('--ver', type=str, dest="ver", help='ver', default="1")
 args = parser.parse_args()
@@ -34,10 +34,10 @@ ENV_LIST = ['stable_gym:CartPoleCost-v1', 'MountainCarContinuous-v0', 'Hopper-v4
             'Pendulum-v1']
 ENV_TYPE_LIST = [1, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [250, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [0.001, 0.001, 9.8e-5, 4e-5, 0.001, 5e-5]
+LEARNING_RATE_LIST = [1e-5, 0.001, 1e-5, 4e-5, 0.001, 5e-5]
 CONTROL_SCALE_LIST = [20, 1, 1, 0.4, 1, 2]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
-REWARD_SCALE_BETA_LIST = [1, 1, 10, 1, 1, 8.1]
+REWARD_SCALE_BETA_LIST = [250, 1, 10, 1, 1, 8.1]
 ENV = ENV_LIST[args.env]
 VERSION = args.version
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
@@ -61,7 +61,7 @@ torch.manual_seed(SEED)
 device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 INPUT_DIM = train_env.observation_space.shape[0]
-HIDDEN_DIM = 256
+HIDDEN_DIM = 128
 
 if not IS_CONTINUOUS_ENV:
     OUTPUT_DIM = train_env.action_space.n
@@ -77,7 +77,7 @@ else:
     policy.apply(init_weights)
 
 LEARNING_RATE = LEARNING_RATE_LIST[args.env]
-optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE)
+optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
 
 ppo_args = PPOArgs(agent_path=f"./param/ppo_policy_{ENV[:4]}.pkl", cont_action=IS_CONTINUOUS_ENV,
                    rollout_len=ROLLOUT_LEN, noise_sigma=DIST,
@@ -87,25 +87,12 @@ ppo_args = PPOArgs(agent_path=f"./param/ppo_policy_{ENV[:4]}.pkl", cont_action=I
 # ppo_args = PPOArgs(agent_path=f"/home/asd/PycharmProjects/pythonProject1/Learning_Control_System/param/rlmodel_new_cp_error_5_epoch_100_iter_100.pkl", cont_action=IS_CONTINUOUS_ENV, rollout_len=ROLLOUT_LEN)
 agent = Agent(policy, optimizer, ppo_args, device)
 
-# agent = lac(env_fn=train_env, actor_critic=None, opt_type='minimize', max_ep_len=None,
-#             epochs=100, steps_per_epoch=2048, start_steps=0, update_every=100,
-#             update_after=1000, steps_per_update=100, num_test_episodes=10,
-#             alpha=0.99, alpha3=0.2, labda=0.99, gamma=0.99, polyak=0.995,
-#             target_entropy=None, adaptive_temperature=True, lr_a=0.0001,
-#             lr_c=0.0003, lr_alpha=0.0001, lr_labda=0.0003, lr_a_final=1e-10,
-#             lr_c_final=1e-10, lr_alpha_final=1e-10, lr_labda_final=1e-10,
-#             lr_decay_type='linear', lr_a_decay_type=None,
-#             lr_c_decay_type=None, lr_alpha_decay_type=None,
-#             lr_labda_decay_type=None, lr_decay_ref='epoch', batch_size=256,
-#             replay_size=1000000, horizon_length=0, seed=None, device='cpu',
-#             logger_kwargs={}, save_freq=1, start_policy=None, export=False)
-
 MAX_EPISODES = 100000
-DISCOUNT_FACTOR = 0.9
+DISCOUNT_FACTOR = 0.99
 N_TRIALS = 50
 REWARD_MAX = -10000
 PRINT_EVERY = 50
-PRINT_MAX = 500
+PRINT_MAX = 5000
 
 EVAL_ONLY = args.eval
 train_rewards = []
@@ -122,7 +109,7 @@ if not EVAL_ONLY:
 
         policy_loss, value_loss, train_reward, train_step = train(train_env, agent, device, step_flag=flag)
 
-        test_reward , test_step = evaluate(test_env, agent, device, step_flag=flag)
+        test_reward, test_step = evaluate(test_env, agent, device, step_flag=flag)
 
         train_rewards.append(train_reward)
         test_rewards.append(test_reward)
@@ -136,17 +123,15 @@ if not EVAL_ONLY:
 
         if episode % PRINT_EVERY == 0:
             print(
-                f'| Episode: {episode:3} | Mean Train Rewards: {mean_train_rewards:5.1f} | Mean Test Rewards: {mean_test_rewards:5.1f} |')
-            print(
                 f'| Episode: {episode:3} | Mean Train Steps: {mean_train_steps:5.1f} | Mean Test steps: {mean_test_steps:5.1f} |')
 
         if mean_test_rewards >= REWARD_MAX:
-            REWARD_MAX = mean_test_rewards
+            REWARD_MAX = mean_test_steps
             agent.save_param(name=f"./param/ppo_policy_{ENV[:4]}_{VERSION}.pkl")
 
     plt.figure(figsize=(12, 8))
-    plt.plot(test_rewards, label='Test Reward')
-    plt.plot(train_rewards, label='Train Reward')
+    plt.plot(test_steps, label='Test Reward')
+    plt.plot(train_steps, label='Train Reward')
     plt.xlabel('Episode', fontsize=20)
     plt.ylabel('Reward', fontsize=20)
     # plt.hlines(REWARD_THRESHOLD, 0, len(test_rewards), color='r')
@@ -159,7 +144,7 @@ else:
     print("weight:", WEIGHT)
     if TRAIN_BASE == 1:
         if TEST_BASE == 1:
-            agent.load_param(name=f"../rlmodels/param/ppo_policy_Hopp_9e-5_ver_3.pkl")
+            agent.load_param(name=f"../param/rlmodel_new_cp_error_5_epoch_10_iter_300_dist_20_ver_1.pkl")
         else:
             agent.load_param(
                 name=f"../param/rlmodel_new_hop_error_{WEIGHT}_step_1000_epoch_50_iter_400_dist_{DIST_ARG}_ver_{VER}.pkl")
@@ -181,9 +166,12 @@ else:
             agent.load_param(
                 name=f"../param/rlmodel_new_pen_error_{WEIGHT}_step_500_epoch_50_iter_400_dist_{DIST_ARG}_ver_{VER}.pkl")
     for episode in range(1, PRINT_MAX + 1):
-        test_reward = evaluate(test_env, agent, device)
+        test_reward, test_step = evaluate(test_env, agent, device)
+        # print(test_step)
         test_rewards.append(test_reward)
+        test_steps.append(test_step)
         mean_test_rewards = np.mean(test_rewards)
+        mean_test_steps = np.mean(test_steps)
 
         if episode % PRINT_MAX == 0:
-            print(f'| Episode: {episode:3} | Mean Test Rewards: {mean_test_rewards:5.1f} |')
+            print(f'| Episode: {episode:3} | Mean Test Rewards: {mean_test_steps} |')

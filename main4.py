@@ -1,6 +1,6 @@
 from stablemodels import StableDynamicsModel
 from rlmodels import *
-import gym
+import gymnasium as gym
 import os
 import torch
 import torch.optim as optim
@@ -45,15 +45,16 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Environment setups
-ENV_LIST = ['stable_gym:CartPole-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1', 'Pendulum-v1']
-ENV_TYPE_LIST = [0, 1, 1, 1, 0, 1]
+ENV_LIST = ['stable_gym:CartPoleCost-v1', 'MountainCarContinuous-v0', 'Hopper-v4', 'HumanoidStandup-v4', 'Acrobot-v1',
+            'Pendulum-v1']
+ENV_TYPE_LIST = [1, 1, 1, 1, 0, 1]
 ROLLOUT_LEN_LIST = [250, 10000, 1000, 1000, 500, 200]
-LEARNING_RATE_LIST = [1e-4, 0.001, 4e-5, 0.003, 0.001, 4e-5]
+LEARNING_RATE_LIST = [1e-5, 0.001, 4e-5, 0.003, 0.001, 4e-5]
 CONTROL_SIZE_LIST = [1, 1, 3, 17, 1, 1]
-CONTROL_SCALE_LIST = [1, 1, 1, 1, 1, 2]
-STOPPED_TYPE = [True, False, False, False, True, False]
+CONTROL_SCALE_LIST = [20, 1, 1, 1, 1, 2]
+STOPPED_TYPE = [False, False, False, False, True, False]
 REWARD_SCALE_ALPHA_LIST = [0, 0, 0, 0, 0, 8.1]
-REWARD_SCALE_BETA_LIST = [1, 1, 1, 1, 1, 8.1]
+REWARD_SCALE_BETA_LIST = [250, 1, 1, 1, 1, 8.1]
 ENV = ENV_LIST[args.env]
 IS_CONTINUOUS_ENV = ENV_TYPE_LIST[args.env]
 ROLLOUT_LEN = ROLLOUT_LEN_LIST[args.env]
@@ -68,7 +69,7 @@ LEARNING_RATE = LEARNING_RATE_LIST[args.env]
 SEED = args.seed
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 cpu_device = torch.device("cpu")
 env = gym.make(ENV)
 
@@ -91,10 +92,10 @@ else:
 
 PLOT_ONLY = args.if_plot
 PRETRAIN = False
-NUM_WORKER = os.cpu_count()
+NUM_WORKER = os.cpu_count()//4
 NUM_ITER = 600
-EPOCH = 50
-BATCH_SIZE = 2
+EPOCH = 10
+BATCH_SIZE = 256
 
 ppo_args = PPOArgs(
     agent_path=f"./rlmodels/param/ppo_policy_{ENV[:4]}_{BASE}.pkl",
@@ -104,7 +105,7 @@ ppo_args = PPOArgs(
     reward_scaling_alpha=REWARD_SCALE_ALPHA,
     reward_scaling_beta=REWARD_SCALE_BETA
 )
-rl_optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE)
+rl_optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
 agent = Agent(policy, rl_optimizer, ppo_args, cpu_device)
 
 # Define system model
@@ -226,35 +227,28 @@ if not PLOT_ONLY:
         rewards = []
         reward_errors = []
         reward_history = []
+        policy_loss_history = []
+        value_loss_history = []
 
         if iter % 2 == 0:
             if ERR_WEIGHT == 0:
                 continue
             # Define system model
-            if iter <= 300:
-                model = StableDynamicsModel((INPUT_DIM,),  # input shape
-                                            control_size=CONTROL_SIZE,  # action size
-                                            device=device,
-                                            alpha=0.9,  # lyapunov constant
-                                            layer_sizes=[64, 64],  # NN layer sizes for lyapunov
-                                            lr=3e-4,  # learning rate for dynamics model
-                                            lyapunov_lr=3e-4,  # learning rate for lyapunov function
-                                            lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
-                model = model.to(device)
-                optimizer = optim.Adam(model.parameters(), lr=1e-4)
-            # model = StableDynamicsModel((INPUT_DIM,),  # input shape
-            #                             control_size=CONTROL_SIZE,  # action size
-            #                             device=device,
-            #                             alpha=0.9,  # lyapunov constant
-            #                             layer_sizes=[64, 64],  # NN layer sizes for lyapunov
-            #                             lr=3e-4,  # learning rate for dynamics model
-            #                             lyapunov_lr=3e-4,  # learning rate for lyapunov function
-            #                             lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
-            # model = model.to(device)
-            # optimizer = optim.Adam(model.parameters(), lr=1e-4)
+            # if iter <= 300:
+            model = StableDynamicsModel((INPUT_DIM,),  # input shape
+                                        control_size=CONTROL_SIZE,  # action size
+                                        device=device,
+                                        alpha=0.9,  # lyapunov constant
+                                        layer_sizes=[64, 64],  # NN layer sizes for lyapunov
+                                        lr=3e-4,  # learning rate for dynamics model
+                                        lyapunov_lr=3e-4,  # learning rate for lyapunov function
+                                        lyapunov_eps=1e-3)  # penalty for equilibrium away from 0
+            model = model.to(device)
+            optimizer = optim.Adam(model.parameters(), lr=1e-4)
+
             t2 = time.time()
             ret = ray.get(
-                [worker.rollout.remote(max_step=ROLLOUT_LEN, epoch=EPOCH, rand=int(iter == 0)) for worker in Workers])
+                [worker.rollout.remote(max_step=100, epoch=EPOCH, rand=int(iter == 0)) for worker in Workers])
             print("rollout:", time.time() - t2)
 
             state_batch = []
@@ -268,6 +262,7 @@ if not PLOT_ONLY:
             state_batch = torch.cat(state_batch).to(device)
             action_batch = torch.cat(action_batch).to(device)
             next_state_batch = torch.cat(next_state_batch).to(device)
+            action_batch = action_batch.float()
 
             for ep in range(1):
                 error = 0
@@ -293,14 +288,15 @@ if not PLOT_ONLY:
                     prediction = model(state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE],
                                        action_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE])
 
-                    error = ((prediction - next_state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE]) ** 2).sum(-1)
+                    # import pdb; pdb.set_trace()
+                    error = ((state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE] + prediction -
+                              next_state_batch[i * BATCH_SIZE: (i + 1) * BATCH_SIZE]) ** 2).sum(-1)
 
                     error = error.mean(0)
 
                     optimizer.zero_grad()
                     error.backward()
                     optimizer.step()
-
 
                 errors.append(error.item())
                 print("optimize:", time.time() - t3)
@@ -334,22 +330,25 @@ if not PLOT_ONLY:
                     action_batch.append(torch.tensor(action).reshape(-1, CONTROL_SIZE).to(device))
 
                     state, reward, done, _, _ = env.step(action)
+                    cnt += 1
                     state = torch.FloatTensor(state).unsqueeze(0).to(device)
                     next_state_batch.append(state)
-                    reward_batch.append(reward)
+                    # Notation： 因为stable版本的返回reward是一个二次型，在返回时仍采用原CartPole-v1版本的reward
+                    reward_batch.append(cnt)
+                    # reward_batch.append(reward)
 
-                    cnt += 1
                     episode_reward += reward
                     if cnt == ROLLOUT_LEN:
                         break
 
                 state_batch = torch.cat(state_batch)
-                action_batch = torch.cat(action_batch)
+                action_batch = torch.cat(action_batch).float()
                 next_state_batch = torch.cat(next_state_batch)
+
 
                 # Predicted next state
                 prediction = model(state_batch, action_batch)
-                error = ((prediction - next_state_batch) ** 2).sum(-1).detach()
+                error = ((prediction + state_batch - next_state_batch) ** 2).sum(-1).detach()
                 # error = torch.clamp(error, -100, 100)
 
                 error = error.tolist()
@@ -358,18 +357,31 @@ if not PLOT_ONLY:
                     if i == 0:
                         agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * (error[i] - 0))
                     else:
-                        agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * (error[i] - error[i - 1]))
-                        # agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * error[i])
+                        # agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * (error[i] - error[i - 1]))
+                        agent.update_reward(1 * reward_batch[i] - ERR_WEIGHT * error[i])
+
 
                 agent.calculate_return_and_adv()
                 policy_loss, value_loss = agent.update_policy()
                 # print(policy_loss, value_loss)
-                rewards.append(episode_reward)
+                # Notation：这里打印的信息和前面的reward同步更改
+                # rewards.append(episode_reward)
+                rewards.append(cnt)
+                policy_loss_history.append(policy_loss)
+                value_loss_history.append(value_loss)
                 # reward_errors.append(np.sum(error))
                 reward_errors.append(error[-1])
                 if ep % 100 == 0:
-                    logger.info(
-                        f"Iter: {iter // 2}, epoch: {ep}, reward of rl model: {np.mean(rewards[-100:])}, with error: {error_mean}")
+                    if ERR_WEIGHT:
+                        logger.info(
+                            f"Iter: {iter // 2}, epoch: {ep}, reward of rl model: {np.mean(rewards[-100:])}, with error: {error_mean}")
+                        logger.info(
+                            f"Iter: {iter // 2}, epoch: {ep}, policy loss of rl model: {np.mean(policy_loss_history[-100:])}, value loss of rl model: {np.mean(value_loss_history[-100:])}")
+                    else:
+                        logger.info(
+                            f"Iter: {iter // 2}, epoch: {ep}, reward of rl model: {np.mean(rewards[-100:])}")
+                        logger.info(
+                            f"Iter: {iter // 2}, epoch: {ep}, policy loss of rl model: {np.mean(policy_loss_history[-100:])}, value loss of rl model: {np.mean(value_loss_history[-100:])}")
             if np.mean(rewards[-100:]) > high_reward:
                 agent.save_param(f"./param/rlmodel_new_{VERSION}.pkl")
                 # print("save param")
@@ -406,7 +418,7 @@ if not PLOT_ONLY:
 else:
     with open(f"./figs_{VERSION}/results.json", "r") as json_file:
         data = json.load(json_file)
-    with open(f"./figs_hop_error_0_step_1000_epoch_100_iter_300_lr_4e-5_dist_1_ver_1/results.json", "r") as json_file:
+    with open(f"./figs_cp_error_0_epoch_10_iter_300_dist_20_ver_1/results.json", "r") as json_file:
         data1 = json.load(json_file)
 
     # cut ind
@@ -434,7 +446,7 @@ else:
     plt.plot(avg_rewards)
     plt.plot(avg_rewards0)
     plt.ylabel("Reward of RL controller (Max: 100)")
-    plt.savefig(f"./fixs gs_{VERSION}/avg_rewards.jpg")
+    plt.savefig(f"./figs_{VERSION}/avg_rewards.jpg")
 
     plt.figure()
     plt.xlabel("Iteration")

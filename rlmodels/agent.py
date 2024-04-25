@@ -8,7 +8,7 @@ class PPOArgs(object):
     def __init__(
             self,
             rollout_len=500,
-            ppo_steps=10,
+            ppo_steps=5,
             ppo_clip=0.2,
             discount_factor=0.99,
             normalize=False,
@@ -99,7 +99,7 @@ class Agent(object):
                 self.actions.append(action)
                 self.log_prob_actions.append(log_prob_action.sum(-1).reshape(-1, 1))
                 self.values.append(value_pred)
-                action = action[0].cpu().numpy().astype(np.float64)
+
             else:
                 self.policy.eval()
                 with torch.no_grad():
@@ -107,12 +107,11 @@ class Agent(object):
                     dist = distributions.Normal(action_mu, action_std)
                     action = dist.sample()
                     action = torch.clamp(action, min=-20, max=20)
-                    action = action[0].cpu().numpy().astype(np.float64)
 
-            # noise = torch.normal(0, self.args.noise_sigma, size=action.size()).to(self.device)
-            # action = torch.clamp(action + noise, min=-2, max=2)
+            noise = torch.normal(0, self.args.noise_sigma, size=action.size()).to(self.device)
+            action = torch.clamp(action + noise, min=-20, max=20)
+            action = action[0].cpu().numpy().astype(np.float64)
 
-            # return action.tolist()[0]
             return action
 
     def update_reward(self, reward):
@@ -129,6 +128,7 @@ class Agent(object):
             cur_returns.insert(0, R)
 
         self.returns += cur_returns
+        # print(self.returns)
 
     def calculate_advantages(self):
         self.advantages = self.returns - self.values
@@ -194,6 +194,7 @@ class Agent(object):
             total_value_loss += value_loss.item()
 
         self.clear()
+
         return total_policy_loss / self.args.ppo_steps, total_value_loss / self.args.ppo_steps
 
     def clear(self):
